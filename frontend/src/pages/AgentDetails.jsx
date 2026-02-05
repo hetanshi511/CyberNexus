@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, ChevronRight, Copy, Check, Download, MessageSquare, Shield, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ChevronRight, Copy, Check, Download, MessageSquare, Shield, Zap, Play, X, Loader2 } from 'lucide-react';
 import { agents } from '../data/agents';
 
 const AgentDetails = () => {
@@ -10,28 +10,68 @@ const AgentDetails = () => {
     const [pageTitle, setPageTitle] = useState('');
     const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        // Find agent by ID
-        let foundAgent = agents.find(a => a.id === id);
+    // Modal & Execution State
+    const [showRunModal, setShowRunModal] = useState(false);
+    const [accessToken, setAccessToken] = useState('');
+    const [isRunning, setIsRunning] = useState(false);
+    const [executionResult, setExecutionResult] = useState(null);
+    const [executionStatus, setExecutionStatus] = useState(null); // 'success', 'error'
 
-        // Fallback for demo if id not found (or coming from Accelerators grid with title match)
+    useEffect(() => {
+        let foundAgent = agents.find(a => a.id === id);
         if (!foundAgent && id) {
-            // Try finding by title slug if id lookup fails
             foundAgent = agents.find(a =>
                 a.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === id ||
                 a.title === id
             );
         }
-
-        // If still not found, just use the first one or a mock for demo purposes if strictly needed, 
-        // but better to show not found or handle gracefully. 
-        // For this task, we assume valid IDs are passed.
-
         if (foundAgent) {
             setAgent(foundAgent);
             setPageTitle(foundAgent.title);
         }
     }, [id]);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(agent.prompt || "Default prompt text...");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleRunAgent = async (e) => {
+        e.preventDefault();
+        setIsRunning(true);
+        setExecutionResult(null);
+        setExecutionStatus(null);
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${apiUrl}/api/execute_agent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                linkedin_access_token: accessToken,
+                topic: agent.prompt
+            }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setExecutionResult(data);
+                setExecutionStatus('success');
+            } else {
+                setExecutionResult({ error: data.detail || 'Failed to run agent' });
+                setExecutionStatus('error');
+            }
+        } catch (error) {
+            setExecutionResult({ error: error.message });
+            setExecutionStatus('error');
+        } finally {
+            setIsRunning(false);
+        }
+    };
 
     if (!agent) {
         return (
@@ -41,12 +81,6 @@ const AgentDetails = () => {
             </div>
         );
     }
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(agent.prompt || "Default prompt text...");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
 
     return (
         <div className="min-h-screen bg-[#f8fbff] pt-24 pb-20">
@@ -105,13 +139,6 @@ const AgentDetails = () => {
                                         {agent.integrations && agent.integrations.length > 0 ? (
                                             agent.integrations.map((integration, idx) => (
                                                 <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-white border border-gray-100 rounded shadow-sm">
-                                                    <div className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold uppercase ${integration === 'slack' ? 'bg-purple-100 text-purple-700' :
-                                                        integration === 'gmail' ? 'bg-red-100 text-red-700' :
-                                                            integration === 'zendesk' ? 'bg-green-100 text-green-700' :
-                                                                'bg-gray-100 text-gray-700'
-                                                        }`}>
-                                                        {integration.charAt(0)}
-                                                    </div>
                                                     <span className="text-gray-700 font-medium capitalize">{integration}</span>
                                                 </div>
                                             ))
@@ -133,9 +160,19 @@ const AgentDetails = () => {
                             </div>
 
                             <div className="flex gap-4 pt-4">
-                                <button className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-xl transition-all active:scale-95">
-                                    Install
-                                </button>
+                                {agent.id === 'sec-1' ? (
+                                    <button 
+                                        onClick={() => setShowRunModal(true)}
+                                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Play className="w-5 h-5" /> Run Agent
+                                    </button>
+                                ) : (
+                                    <button className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-xl transition-all active:scale-95">
+                                        Install
+                                    </button>
+                                )}
+                                
                                 <button className="px-8 py-3 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95">
                                     Contact Sales
                                 </button>
@@ -145,13 +182,11 @@ const AgentDetails = () => {
                         {/* Right Column: Visual */}
                         <div className="relative">
                             <div className="aspect-[4/3] bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl border border-blue-100 flex items-center justify-center relative overflow-hidden group">
-                                {/* Decor circles */}
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="w-[80%] h-[80%] border border-blue-100 rounded-full animate-pulse-slow"></div>
                                     <div className="w-[60%] h-[60%] border border-blue-200 rounded-full absolute"></div>
                                     <div className="w-[40%] h-[40%] border border-blue-300 rounded-full absolute"></div>
                                 </div>
-
                                 <div className="bg-white p-6 rounded-2xl shadow-xl relative z-10 flex items-center gap-4 animate-float">
                                     <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
                                         <div className="w-6 h-6 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
@@ -177,46 +212,120 @@ const AgentDetails = () => {
                         </div>
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                             <p className="text-gray-600 leading-relaxed font-mono text-sm">
-                                {agent.prompt || `Given the document at <Document>, identify its main topics, sections, and key points. Then, draft a list of frequently asked questions (FAQs) based on this information. Start the response by empathizing with the user's emotions, and provide reassurance. The response should be clear and structured, using bullet points for each FAQ. The welcome should be similar to 'Sure! Let's draft an FAQ document based on the provided document.' but not identical.`}
+                                {agent.prompt || `Default agent prompt...`}
                             </p>
                         </div>
                     </div>
 
                 </div>
-
-                {/* Bottom Section - Installation / Screenshots */}
-                <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                    <button className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">Installation Instructions</span>
-                        </div>
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                    </button>
-                    <div className="px-6 pb-6 text-gray-600 text-sm">
-                        Instructions to follow while configuring the agent.
-                    </div>
-                </div>
-
-                <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm text-center">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Developer</p>
-                        <p className="font-medium text-gray-900">Infopercept</p>
-                    </div>
-                    <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm text-center">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Last Updated</p>
-                        <p className="font-medium text-gray-900">15-12-2025</p>
-                    </div>
-                    <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm text-center">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Language</p>
-                        <p className="font-medium text-gray-900">English</p>
-                    </div>
-                    <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm text-center">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Installs</p>
-                        <p className="font-medium text-gray-900">-</p>
-                    </div>
-                </div>
-
             </div>
+
+            {/* Run Agent Modal */}
+            <AnimatePresence>
+                {showRunModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                        onClick={() => setShowRunModal(false)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900">Run {agent.title}</h2>
+                                <button onClick={() => setShowRunModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <div className="p-6">
+                                {!executionResult && !isRunning && (
+                                    <form onSubmit={handleRunAgent} className="space-y-4">
+                                        <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-700 mb-4">
+                                            This agent will search specifically for news from <strong>Google, GPT, and Linux Foundation</strong> regarding Cybersecurity and post it to your <strong>LinkedIn</strong>.
+                                        </div>
+                                        
+                                        <div className="mb-4">
+                        <label className="block text-gray-400 text-sm font-bold mb-2">
+                            LinkedIn Access Token
+                        </label>
+                        <textarea
+                            className="shadow appearance-none border border-gray-700 bg-gray-900 rounded w-full py-2 px-3 text-gray-300 leading-tight focus:outline-none focus:shadow-outline"
+                            rows="3"
+                            placeholder="Paste your OAuth Access Token here..."
+                            value={accessToken}
+                            onChange={(e) => setAccessToken(e.target.value)}
+                            required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Run 'generate_token.py' locally to generate this token.
+                        </p>
+                    </div>
+
+                                        <div className="pt-4">
+                                            <button 
+                                                type="submit" 
+                                                className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                                            >
+                                                Start Agent
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+
+                                {isRunning && (
+                                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                                        <h3 className="text-lg font-semibold text-gray-900">Agent is running...</h3>
+                                        <p className="text-gray-500">Searching web, generating content, and connecting to LinkedIn.</p>
+                                    </div>
+                                )}
+
+                                {executionResult && (
+                                    <div className="space-y-4">
+                                        {executionStatus === 'success' ? (
+                                            <div className="p-4 bg-green-50 text-green-700 rounded-xl border border-green-100 flex items-start gap-3">
+                                                <Check className="w-5 h-5 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="font-bold">Success!</p>
+                                                    <p className="text-sm">{executionResult.status}</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100">
+                                                <p className="font-bold">Error</p>
+                                                <p className="text-sm">{executionResult.error}</p>
+                                            </div>
+                                        )}
+
+                                        {executionResult.newsletter && (
+                                            <div className="mt-4">
+                                                <h4 className="font-semibold text-gray-900 mb-2">Generated Newsletter:</h4>
+                                                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto border border-gray-200">
+                                                    {executionResult.newsletter}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <button 
+                                            onClick={() => { setExecutionResult(null); setIsRunning(false); }}
+                                            className="w-full mt-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                                        >
+                                            Run Again
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

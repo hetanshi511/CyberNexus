@@ -157,6 +157,19 @@ export const agents = [
         agentType: 'Assistant',
         integrations: ['zoom', 'teams', 'meet'],
         tags: ['General', 'Productivity']
+    },
+    // Cyber Security Agents
+    {
+        id: 'sec-1',
+        title: 'Cyber Security Newsletter Bot',
+        description: 'Searches for recent cyber security news (Google, GPT, Linux Foundation) and posts a curated newsletter to LinkedIn.',
+        industry: 'IT',
+        function: 'IT',
+        useCase: 'Content Creation',
+        agentType: 'Generative AI',
+        integrations: ['linkedin', 'tavily'],
+        tags: ['Security', 'LinkedIn', 'News'],
+        prompt: 'Search for recent cyber security news and create a LinkedIn post.'
     }
 ];
 
