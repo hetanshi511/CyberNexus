@@ -1,16 +1,54 @@
-# React + Vite
+# Infopercept Marketplace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern AI Agent Marketplace built with React, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## 🚀 Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
 
-## React Compiler
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) (Optional, for containerized run)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Option 1: Run with Docker (Recommended)
 
-## Expanding the ESLint configuration
+The easiest way to run the application is using Docker. This ensures you have the exact same environment as production.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/meet306/invinsense-marketplace.git
+    cd invinsense-marketplace/frontend
+    ```
+
+2.  **Start the app:**
+    ```bash
+    docker-compose up --build
+    ```
+
+3.  **Access the app:**
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Option 2: Run Manually (Local Development)
+
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+2.  **Set up Environment Variables:**
+    Create a `.env` file in the `frontend` directory using the provided `.env.example` as a template.
+    *(Note: If you have just cloned the repo, check if the `.env` file is already present).*
+
+3.  **Start the development server:**
+    ```bash
+    npm run dev
+    ```
+
+4.  **Access the app:**
+    Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React, Vite
+- **Styling:** Tailwind CSS, Framer Motion
+- **Icons:** Lucide React
+- **Auth:** Firebase Authentication
