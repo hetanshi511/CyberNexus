@@ -3,16 +3,22 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronRight, Copy, Check, Download, MessageSquare, Shield, Zap, Play, X, Loader2 } from 'lucide-react';
 import { agents } from '../data/agents';
+import { useAuth } from '../context/AuthContext';
 
 const AgentDetails = () => {
     const { id } = useParams();
     const [agent, setAgent] = useState(null);
     const [pageTitle, setPageTitle] = useState('');
     const [copied, setCopied] = useState(false);
+    const { currentUser } = useAuth();
 
     // Modal & Execution State
     const [showRunModal, setShowRunModal] = useState(false);
     const [accessToken, setAccessToken] = useState('');
+    const [policySource, setPolicySource] = useState('');
+    const [policyTarget, setPolicyTarget] = useState('');
+    const [vendorName, setVendorName] = useState('');
+    const [vendorDocs, setVendorDocs] = useState('');
     const [isRunning, setIsRunning] = useState(false);
     const [executionResult, setExecutionResult] = useState(null);
     const [executionStatus, setExecutionStatus] = useState(null); // 'success', 'error'
@@ -55,8 +61,13 @@ const AgentDetails = () => {
 
             let endpoint = '/api/execute_agent';
             let body = {
+                agent_id: agent.id,
                 linkedin_access_token: accessToken,
-                topic: agent.prompt
+                topic: agent.prompt,
+                policy_source: policySource,
+                policy_target: policyTarget,
+                vendor_name: vendorName,
+                vendor_docs: vendorDocs
             };
 
             if (isScheduled) {
@@ -202,7 +213,7 @@ const AgentDetails = () => {
                             </div>
 
                             <div className="flex gap-4 pt-4">
-                                {agent.id === 'sec-1' ? (
+                                {currentUser ? (
                                     <button
                                         onClick={() => setShowRunModal(true)}
                                         className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all active:scale-95 flex items-center gap-2"
@@ -210,14 +221,16 @@ const AgentDetails = () => {
                                         <Play className="w-5 h-5" /> Run Agent
                                     </button>
                                 ) : (
-                                    <button className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-xl transition-all active:scale-95">
-                                        Install
-                                    </button>
+                                    <div className="flex flex-col gap-2">
+                                        <Link
+                                            to="/login"
+                                            className="px-8 py-3 bg-gray-900 text-white font-semibold rounded-xl shadow-lg hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2 justify-center"
+                                        >
+                                            Login to Run Agent
+                                        </Link>
+                                        <p className="text-xs text-gray-500 text-center">Authentication required</p>
+                                    </div>
                                 )}
-
-                                <button className="px-8 py-3 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95">
-                                    Contact Sales
-                                </button>
                             </div>
                         </div>
 
@@ -289,26 +302,92 @@ const AgentDetails = () => {
                             <div className="p-6">
                                 {!executionResult && !isRunning && (
                                     <form onSubmit={handleRunAgent} className="space-y-4">
-                                        <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-700 mb-4">
-                                            This agent will search specifically for news from <strong>Google, GPT, and Linux Foundation</strong> regarding Cybersecurity and post it to your <strong>LinkedIn</strong>.
-                                        </div>
 
-                                        <div className="mb-4">
-                                            <label className="block text-gray-400 text-sm font-bold mb-2">
-                                                LinkedIn Access Token
-                                            </label>
-                                            <textarea
-                                                className="shadow appearance-none border border-gray-700 bg-gray-900 rounded w-full py-2 px-3 text-gray-300 leading-tight focus:outline-none focus:shadow-outline"
-                                                rows="3"
-                                                placeholder="Paste your OAuth Access Token here..."
-                                                value={accessToken}
-                                                onChange={(e) => setAccessToken(e.target.value)}
-                                                required
-                                            />
-                                            {/* <p className="text-xs text-gray-500 mt-1">
-                            Run 'generate_token.py' locally to generate this token.
-                        </p> */}
-                                        </div>
+                                        {agent.id === 'sec-2' ? (
+                                            <>
+                                                <div className="p-4 bg-purple-50 rounded-xl text-sm text-purple-700 mb-4">
+                                                    This agent will compare two policy documents and highlight conflicts.
+                                                </div>
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                                        Source Policy (e.g. Internal Draft)
+                                                    </label>
+                                                    <textarea
+                                                        className="shadow appearance-none border border-gray-300 rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        rows="4"
+                                                        placeholder="Paste your internal policy text here..."
+                                                        value={policySource}
+                                                        onChange={(e) => setPolicySource(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                                        Target Standard (e.g. ISO 27001 / GDPR)
+                                                    </label>
+                                                    <textarea
+                                                        className="shadow appearance-none border border-gray-300 rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        rows="4"
+                                                        placeholder="Paste the standard text or reference policy here..."
+                                                        value={policyTarget}
+                                                        onChange={(e) => setPolicyTarget(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : agent.id === 'sec-3' ? (
+                                            <>
+                                                <div className="p-4 bg-orange-50 rounded-xl text-sm text-orange-700 mb-4">
+                                                    This agent will analyze vendor documentation to assess security risks.
+                                                </div>
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                                        Vendor Name
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        className="shadow appearance-none border border-gray-300 rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                        placeholder="e.g. Acme Corp"
+                                                        value={vendorName}
+                                                        onChange={(e) => setVendorName(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                                        Security Documentation / Claims
+                                                    </label>
+                                                    <textarea
+                                                        className="shadow appearance-none border border-gray-300 rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                        rows="5"
+                                                        placeholder="Paste the vendor's security page content, certifications, or compliance summary here..."
+                                                        value={vendorDocs}
+                                                        onChange={(e) => setVendorDocs(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-700 mb-4">
+                                                    This agent will search specifically for news from <strong>Google, GPT, and Linux Foundation</strong> regarding Cybersecurity and post it to your <strong>LinkedIn</strong>.
+                                                </div>
+
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-400 text-sm font-bold mb-2">
+                                                        LinkedIn Access Token
+                                                    </label>
+                                                    <textarea
+                                                        className="shadow appearance-none border border-gray-700 bg-gray-900 rounded w-full py-2 px-3 text-gray-300 leading-tight focus:outline-none focus:shadow-outline"
+                                                        rows="3"
+                                                        placeholder="Paste your OAuth Access Token here..."
+                                                        value={accessToken}
+                                                        onChange={(e) => setAccessToken(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
 
                                         <div className="border-t border-gray-100 pt-4 mb-4">
                                             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer select-none">
@@ -420,11 +499,13 @@ const AgentDetails = () => {
                                             </div>
                                         )}
 
-                                        {executionResult.newsletter && (
+                                        {(executionResult.newsletter || executionResult.report) && (
                                             <div className="mt-4">
-                                                <h4 className="font-semibold text-gray-900 mb-2">Generated Newsletter:</h4>
-                                                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto border border-gray-200">
-                                                    {executionResult.newsletter}
+                                                <h4 className="font-semibold text-gray-900 mb-2">
+                                                    {executionResult.newsletter ? 'Generated Newsletter:' : 'Conflict Analysis Report:'}
+                                                </h4>
+                                                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto border border-gray-200 font-mono">
+                                                    {executionResult.newsletter || executionResult.report}
                                                 </div>
                                             </div>
                                         )}
