@@ -34,6 +34,12 @@ export const AuthProvider = ({ children }) => {
         return signOut(auth);
     };
 
+    /** Returns a fresh Firebase ID token (JWT) for the current user. */
+    const getIdToken = async () => {
+        if (!auth.currentUser) throw new Error('Not authenticated');
+        return auth.currentUser.getIdToken(/* forceRefresh */ false);
+    };
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
@@ -48,7 +54,8 @@ export const AuthProvider = ({ children }) => {
         signup,
         login,
         loginWithGoogle,
-        logout
+        logout,
+        getIdToken,
     };
 
     return (

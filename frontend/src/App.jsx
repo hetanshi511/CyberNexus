@@ -6,6 +6,11 @@ import Home from './pages/Home';
 import SearchPage from './pages/SearchPage';
 import AgentDetails from './pages/AgentDetails';
 import Login from './pages/Login';
+import ComplianceDashboard from './pages/ComplianceDashboard';
+import ContentReviewDashboard from './pages/ContentReviewDashboard';
+import HeaderValidatorDashboard from './pages/HeaderValidatorDashboard';
+import ResumeReviewerDashboard from './pages/ResumeReviewerDashboard';
+import SchedulerDashboard from './pages/SchedulerDashboard';
 import { AuthProvider } from './context/AuthContext';
 
 function App() {
@@ -18,6 +23,11 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/agent/:id" element={<AgentDetails />} />
+            <Route path="/compliance-dashboard" element={<ComplianceDashboard />} />
+            <Route path="/content-review-dashboard" element={<ContentReviewDashboard />} />
+            <Route path="/header-validator-dashboard" element={<HeaderValidatorDashboard />} />
+            <Route path="/resume-reviewer-dashboard" element={<ResumeReviewerDashboard />} />
+            <Route path="/scheduler-dashboard" element={<SchedulerDashboard />} />
             <Route path="/login" element={<Login />} />
           </Routes>
           <Footer />

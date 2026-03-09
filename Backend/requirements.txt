@@ -9,6 +9,24 @@ python-dotenv
 
 pydantic
 requests
+httpx
+aiodns
 apscheduler
 sqlalchemy
+psycopg2-binary
+firebase-admin
 pytz
+python-docx
+beautifulsoup4
+
+# Attachment Relevance Checker
+pdfplumber
+pytesseract
+Pillow
+numpy
+python-multipart
+playwright
+
+# Scheduler Agent — Google Calendar
+google-api-python-client
+google-auth

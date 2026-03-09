@@ -16,3 +16,7 @@ npm-debug.log
 
 # Output
 jobs.sqlite
+
+# Firebase — NEVER commit service account credentials
+service_account.json
+*-firebase-adminsdk-*.json

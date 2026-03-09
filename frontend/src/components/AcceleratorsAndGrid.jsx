@@ -93,7 +93,7 @@ const AcceleratorsAndGrid = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mb-10">
-                        {["All", "General", "Customer Support", "Sales", "Marketing", "HR", "IT", "Finance", "Operations"].map(filter => (
+                        {["All", "General", "Customer Support", "Sales", "Marketing", "HR", "IT", "Finance", "Operations", "Audit", "Risk", "Legal", "Compliance"].map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => setActiveFilter(filter)}
@@ -141,7 +141,7 @@ const AcceleratorsAndGrid = () => {
 
                                 <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-1" title={func.title}>{func.title}</h3>
                                 <p className="text-xs text-gray-500 mb-4 line-clamp-2 leading-relaxed h-8">
-                                    {func.desc}
+                                    {func.description || func.desc}
                                 </p>
 
                                 <div className="flex flex-wrap gap-2 mt-auto">
