@@ -20,3 +20,5 @@ jobs.sqlite
 # Firebase — NEVER commit service account credentials
 service_account.json
 *-firebase-adminsdk-*.json
+generate_token.py
+
