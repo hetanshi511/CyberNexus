@@ -36,6 +36,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime
 import pytz
 
+# --- MODULAR AGENT IMPORTS ---
+from services.gmail_reader import get_gmail_service
+
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
@@ -336,6 +339,32 @@ async def scheduled_agent_task(linkedin_access_token: str, topic: str):
 def start_scheduler():
     scheduler.start()
     logger.info("Scheduler Started")
+    
+    # Run once at startup, then schedule every 24h
+    register_gmail_watch()
+    if not scheduler.get_job('gmail_watch_job'):
+        scheduler.add_job(
+            register_gmail_watch,
+            IntervalTrigger(days=1),
+            id='gmail_watch_job',
+            name='Daily Gmail Watch Renewal',
+            replace_existing=True
+        )
+
+def register_gmail_watch():
+    """Register Gmail watch for Pub/Sub push notifications. Expires in 7 days."""
+    try:
+        service = get_gmail_service()
+        # Ensure the topic exists in your GCP project: projects/invinsense-marketplace/topics/gmail-interview-replies
+        # Replace invinsense-marketplace if your GCP project ID differs
+        request = {
+            "labelIds": ["Interview-Replies"],
+            "topicName": "projects/invinsense-marketplace/topics/gmail-interview-replies"
+        }
+        res = service.users().watch(userId="me", body=request).execute()
+        logger.info(f"Gmail watch registered successfully: {res}")
+    except Exception as e:
+        logger.error(f"Failed to register Gmail watch: {e}", exc_info=True)
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
