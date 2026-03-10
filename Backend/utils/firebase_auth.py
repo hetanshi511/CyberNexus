@@ -12,7 +12,10 @@ derived from the cryptographically verified ID token.
 """
 
 import os
+import json
+import base64
 import logging
+import tempfile
 from functools import lru_cache
 
 import firebase_admin
@@ -25,18 +28,40 @@ logger = logging.getLogger(__name__)
 # Firebase Admin SDK — initialised once
 # ---------------------------------------------------------------------------
 
+def _load_service_account_info() -> dict:
+    """Load service account credentials from file or environment variable."""
+    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "service_account.json")
+
+    # Option 1: File exists on disk (local dev / Docker)
+    if os.path.exists(cred_path):
+        with open(cred_path) as f:
+            return json.load(f), cred_path
+
+    # Option 2: JSON stored in env var (Railway / cloud deployments)
+    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if sa_json:
+        try:
+            # Try base64-decoded first
+            info = json.loads(base64.b64decode(sa_json))
+        except Exception:
+            # Try raw JSON
+            info = json.loads(sa_json)
+        return info, "GOOGLE_SERVICE_ACCOUNT_JSON env var"
+
+    raise RuntimeError(
+        f"Firebase service account not found. Either:\n"
+        f"  1. Place 'service_account.json' in the Backend root, OR\n"
+        f"  2. Set GOOGLE_SERVICE_ACCOUNT_JSON env var with the JSON content"
+    )
+
+
 @lru_cache(maxsize=1)
 def _get_firebase_app() -> firebase_admin.App:
     """Initialise Firebase Admin SDK exactly once (thread-safe via lru_cache)."""
-    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "service_account.json")
-    if not os.path.exists(cred_path):
-        raise RuntimeError(
-            f"Firebase service account file not found at '{cred_path}'. "
-            "Download it from Firebase Console → Project Settings → Service Accounts."
-        )
-    cred = credentials.Certificate(cred_path)
+    info, source = _load_service_account_info()
+    cred = credentials.Certificate(info)
     app = firebase_admin.initialize_app(cred)
-    logger.info(f"[FirebaseAuth] Initialised using credentials from '{cred_path}'")
+    logger.info(f"[FirebaseAuth] Initialised using credentials from '{source}'")
     return app
 
 

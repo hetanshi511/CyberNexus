@@ -6,6 +6,8 @@ Supports two authentication modes:
 """
 
 import os
+import json
+import base64
 import uuid
 import logging
 from datetime import datetime, timedelta, timezone
@@ -44,17 +46,26 @@ def get_calendar_service_from_token(access_token: str):
 def get_calendar_service():
     """
     Build a Calendar API service using the service-account key (fallback).
+    Supports both file and GOOGLE_SERVICE_ACCOUNT_JSON env var.
     """
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        raise FileNotFoundError(
-            f"Service-account key not found at {SERVICE_ACCOUNT_FILE}. "
-            "Please add it to the Backend root."
+    if os.path.exists(SERVICE_ACCOUNT_FILE):
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
         )
+    else:
+        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        if not sa_json:
+            raise FileNotFoundError(
+                "Service-account key not found. Set GOOGLE_SERVICE_ACCOUNT_JSON env var "
+                "or place service_account.json in the Backend root."
+            )
+        try:
+            info = json.loads(base64.b64decode(sa_json))
+        except Exception:
+            info = json.loads(sa_json)
+        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
 
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
-    service = build("calendar", "v3", credentials=credentials)
+    service = build("calendar", "v3", credentials=creds)
     logger.info("Google Calendar service initialised (service account).")
     return service
 
