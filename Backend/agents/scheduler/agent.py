@@ -40,8 +40,10 @@ class SchedulerState(TypedDict):
     recruiter_name: str
     recruiter_email: str
     calendar_access_token: Optional[str]  # OAuth token from frontend
+    # Workflow outputs
     scheduled_time: Optional[str]         # ISO-format string once resolved
-    meeting_link: str
+    meeting_link: Optional[str]
+    invite_id: Optional[str]  # ID to track replies (e.g., INV-12345)
     calendar_event_id: str
     email_sent: bool
     error: Optional[str]
@@ -147,11 +149,17 @@ def create_event(state: SchedulerState) -> dict:
     try:
         service = _get_service(state)
         calendar_id = "primary" if state.get("calendar_access_token") else state["recruiter_email"]
+        
+        # Generate invite_id if not present
+        invite_id = state.get("invite_id")
+        if not invite_id:
+            import random
+            invite_id = f"INV-{random.randint(10000, 99999)}"
 
         start_dt = datetime.strptime(state["scheduled_time"], "%Y-%m-%d %H:%M")
         end_dt   = start_dt + timedelta(minutes=SLOT_DURATION_MINUTES)
 
-        summary     = f"Interview – {state['job_role']} ({state['candidate_name']})"
+        summary     = f"Interview – {state['job_role']} ({state['candidate_name']}) [{invite_id}]"
         description = (
             f"Candidate : {state['candidate_name']}\n"
             f"Email     : {state['candidate_email']}\n"
@@ -168,7 +176,7 @@ def create_event(state: SchedulerState) -> dict:
             end_dt=end_dt,
             meeting_link=state["meeting_link"],
         )
-        updates = {"calendar_event_id": event_result["event_id"]}
+        updates = {"calendar_event_id": event_result["event_id"], "invite_id": invite_id}
         # Override with the real Google Meet link if available
         if event_result.get("meet_link"):
             updates["meeting_link"] = event_result["meet_link"]
@@ -187,9 +195,16 @@ def send_email(state: SchedulerState) -> dict:
     logger.info("--- SCHEDULER: SEND EMAIL ---")
     if state.get("error"):
         return {}
-
+        
     try:
+        # generate invite id if skipped
+        invite_id = state.get("invite_id")
+        if not invite_id:
+            import random
+            invite_id = f"INV-{random.randint(10000, 99999)}"
+
         interview_dt = datetime.strptime(state["scheduled_time"], "%Y-%m-%d %H:%M")
+
         success = send_interview_email(
             candidate_name=state["candidate_name"],
             candidate_email=state["candidate_email"],
@@ -197,6 +212,7 @@ def send_email(state: SchedulerState) -> dict:
             interview_datetime=interview_dt,
             meeting_link=state["meeting_link"],
             recruiter_name=state["recruiter_name"],
+            invite_id=invite_id
         )
         return {"email_sent": success}
 

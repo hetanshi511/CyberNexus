@@ -20,6 +20,7 @@ def send_interview_email(
     interview_datetime: datetime,
     meeting_link: str,
     recruiter_name: str,
+    invite_id: str = None
 ) -> bool:
     """
     Send an interview-confirmation email to the candidate.
@@ -37,7 +38,10 @@ def send_interview_email(
         logger.warning("SMTP not configured — skipping interview email.")
         return False
 
-    subject = f"Interview Scheduled – {job_role}"
+    if invite_id:
+        subject = f"Interview Scheduled – {job_role} [{invite_id}]"
+    else:
+        subject = f"Interview Scheduled – {job_role}"
 
     formatted_date = interview_datetime.strftime("%A, %B %d, %Y")
     formatted_time = interview_datetime.strftime("%I:%M %p")

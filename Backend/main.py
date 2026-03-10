@@ -19,6 +19,7 @@ from agents.header_validator.agent import run_header_validator_agent
 from agents.resume_reviewer.agent import run_resume_reviewer_agent
 
 from routes.scheduler_routes import router as scheduler_router
+from routes.gmail_webhook_routes import router as gmail_webhook_router
 
 from utils.firebase_auth import get_current_tenant
 from utils.email_pdf import send_raw_pdf_email
@@ -54,6 +55,7 @@ app.add_middleware(
 
 # --- Register Routers ---
 app.include_router(scheduler_router)
+app.include_router(gmail_webhook_router)
 
 # Request Logging Middleware
 @app.middleware("http")
