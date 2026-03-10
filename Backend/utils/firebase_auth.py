@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Firebase Admin SDK — initialised once
 # ---------------------------------------------------------------------------
 
-def _load_service_account_info() -> dict:
+def _load_service_account_info():
     """Load service account credentials from file or environment variable."""
     cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "service_account.json")
 
@@ -38,20 +38,32 @@ def _load_service_account_info() -> dict:
             return json.load(f), cred_path
 
     # Option 2: JSON stored in env var (Railway / cloud deployments)
-    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     if sa_json:
-        try:
-            # Try base64-decoded first
-            info = json.loads(base64.b64decode(sa_json))
-        except Exception:
-            # Try raw JSON
+        logger.info(f"[FirebaseAuth] Env var found, length={len(sa_json)}, starts with: {sa_json[:20]}...")
+
+        # Try raw JSON first (if it starts with '{')
+        if sa_json.startswith("{"):
             info = json.loads(sa_json)
-        return info, "GOOGLE_SERVICE_ACCOUNT_JSON env var"
+            return info, "GOOGLE_SERVICE_ACCOUNT_JSON env var (raw JSON)"
+
+        # Try base64–encoded
+        try:
+            decoded = base64.b64decode(sa_json).decode("utf-8").strip()
+            logger.info(f"[FirebaseAuth] Base64 decoded, length={len(decoded)}, starts with: {decoded[:20]}...")
+            info = json.loads(decoded)
+            return info, "GOOGLE_SERVICE_ACCOUNT_JSON env var (base64)"
+        except Exception as e:
+            logger.error(f"[FirebaseAuth] Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
+            raise RuntimeError(
+                f"GOOGLE_SERVICE_ACCOUNT_JSON env var is set but could not be parsed. "
+                f"Value length={len(sa_json)}, first chars='{sa_json[:30]}'. Error: {e}"
+            )
 
     raise RuntimeError(
-        f"Firebase service account not found. Either:\n"
-        f"  1. Place 'service_account.json' in the Backend root, OR\n"
-        f"  2. Set GOOGLE_SERVICE_ACCOUNT_JSON env var with the JSON content"
+        "Firebase service account not found. Either:\n"
+        "  1. Place 'service_account.json' in the Backend root, OR\n"
+        "  2. Set GOOGLE_SERVICE_ACCOUNT_JSON env var with the JSON content (raw or base64-encoded)"
     )
 
 

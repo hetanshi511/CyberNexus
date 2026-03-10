@@ -53,16 +53,19 @@ def get_calendar_service():
             SERVICE_ACCOUNT_FILE, scopes=SCOPES
         )
     else:
-        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
         if not sa_json:
             raise FileNotFoundError(
                 "Service-account key not found. Set GOOGLE_SERVICE_ACCOUNT_JSON env var "
                 "or place service_account.json in the Backend root."
             )
-        try:
-            info = json.loads(base64.b64decode(sa_json))
-        except Exception:
+        # Try raw JSON first (if it starts with '{')
+        if sa_json.startswith("{"):
             info = json.loads(sa_json)
+        else:
+            # Try base64-encoded
+            decoded = base64.b64decode(sa_json).decode("utf-8").strip()
+            info = json.loads(decoded)
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
 
     service = build("calendar", "v3", credentials=creds)
