@@ -21,43 +21,25 @@ logger = logging.getLogger("scheduler_agent")
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
-def get_gmail_service(email_address: str = None):
-    """Build a Gmail API service using the service-account key or OAuth tokens."""
-    # 1. Attempt using Offline Access OAuth Token if email is provided
-    if email_address:
-        db_creds = get_oauth_credentials(email_address)
-        if db_creds and db_creds.get("refresh_token"):
-            client_config = _get_client_config()
-            creds = Credentials(
-                token=db_creds["access_token"],
-                refresh_token=db_creds["refresh_token"],
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_config.get("client_id"),
-                client_secret=client_config.get("client_secret"),
-                scopes=SCOPES
-            )
-            logger.info(f"[GmailReader] Using OAuth refresh token for {email_address}")
-            return build('gmail', 'v1', credentials=creds)
-
-    # 2. Fallback to Service Account
-    sa_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "service_account.json")
-    
-    if os.path.exists(sa_path):
-        creds = service_account.Credentials.from_service_account_file(sa_path, scopes=SCOPES)
-    else:
-        # Fallback to env var (Railway deployment)
-        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
-        if not sa_json:
-            raise FileNotFoundError("Service-account key not found.")
+def get_gmail_service(email_address: str):
+    """Build a Gmail API service strictly using the OAuth refresh token for the recruiter."""
+    if not email_address:
+        raise ValueError("email_address is required to fetch Gmail OAuth credentials.")
         
-        if sa_json.startswith("{"):
-            info = json.loads(sa_json)
-        else:
-            info = json.loads(base64.b64decode(sa_json).decode("utf-8").strip())
-            
-        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    db_creds = get_oauth_credentials(email_address)
+    if not db_creds or not db_creds.get("refresh_token"):
+        raise PermissionError(f"No OAuth refresh token found in database for recruiter {email_address}. Please complete the OAuth consent flow.")
         
-    logger.info("[GmailReader] Using Service Account credentials mapped to me")
+    client_config = _get_client_config()
+    creds = Credentials(
+        token=db_creds["access_token"],
+        refresh_token=db_creds["refresh_token"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_config.get("client_id"),
+        client_secret=client_config.get("client_secret"),
+        scopes=SCOPES
+    )
+    logger.info(f"[GmailReader] Formed OAuth credentials for {email_address} from DB.")
     return build('gmail', 'v1', credentials=creds)
 
 
