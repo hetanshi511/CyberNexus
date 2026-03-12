@@ -125,8 +125,16 @@ DO $$ BEGIN
             USING (tenant_id = current_setting('app.current_tenant', true));
     END IF;
 END $$;
-"""
 
+CREATE TABLE IF NOT EXISTS user_oauth_tokens (
+    email         TEXT PRIMARY KEY,
+    access_token  TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_at    TIMESTAMP,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
 
 def _init_schema() -> None:
     """Run schema DDL once. Safe to call repeatedly (IF NOT EXISTS guards)."""
@@ -408,3 +416,52 @@ def compute_ticket_hash(ticket: dict, attachment_ids: Optional[List[str]] = None
     ids_str = "|".join(sorted(attachment_ids)) if attachment_ids else ""
     versioned = f"{ANALYSIS_VERSION}:{normalized}:{ids_str}"
     return hashlib.sha256(versioned.encode()).hexdigest()
+
+# ---------------------------------------------------------------------------
+# OAuth Token Storage (For Offline Background Refreshing, e.g. Gmail Webhooks)
+# ---------------------------------------------------------------------------
+
+def save_oauth_tokens(email: str, access_token: str, refresh_token: str = None, expires_at: datetime = None) -> bool:
+    """Upsert OAuth access and refresh tokens for a given user email."""
+    sql = """
+        INSERT INTO user_oauth_tokens (email, access_token, refresh_token, expires_at, updated_at)
+        VALUES (:email, :access, :refresh, :expires, CURRENT_TIMESTAMP)
+        ON CONFLICT (email) DO UPDATE SET
+            access_token = EXCLUDED.access_token,
+            refresh_token = COALESCE(EXCLUDED.refresh_token, user_oauth_tokens.refresh_token),
+            expires_at = EXCLUDED.expires_at,
+            updated_at = CURRENT_TIMESTAMP
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(sql),
+                {
+                    "email": email,
+                    "access": access_token,
+                    "refresh": refresh_token,
+                    "expires": expires_at
+                }
+            )
+        logger.info(f"[DB] Saved OAuth tokens for {email}")
+        return True
+    except SQLAlchemyError as exc:
+        logger.error(f"[DB] Failed to save OAuth tokens for {email}: {exc}")
+        return False
+
+def get_oauth_credentials(email: str) -> Optional[Dict[str, Any]]:
+    """Fetch the OAuth tokens for the given email, returning a dict if found."""
+    sql = "SELECT access_token, refresh_token, expires_at FROM user_oauth_tokens WHERE email = :email"
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(text(sql), {"email": email}).fetchone()
+            if row:
+                return {
+                    "access_token": row[0],
+                    "refresh_token": row[1],
+                    "expires_at": row[2]
+                }
+        return None
+    except SQLAlchemyError as exc:
+        logger.error(f"[DB] Failed to get OAuth tokens for {email}: {exc}")
+        return None

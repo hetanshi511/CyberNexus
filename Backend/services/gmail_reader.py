@@ -1,10 +1,14 @@
 import logging
 import re
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import os
+import json
+import base64
 
 from utils.email_parser import extract_email_body
+from utils.db import get_oauth_credentials
 from agents.scheduler.reply_analyzer import analyze_reply
 from agents.scheduler.reply_handler import handle_reply
 
@@ -17,8 +21,25 @@ logger = logging.getLogger("scheduler_agent")
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
-def get_gmail_service():
-    """Build a Gmail API service using the service-account key."""
+def get_gmail_service(email_address: str = None):
+    """Build a Gmail API service using the service-account key or OAuth tokens."""
+    # 1. Attempt using Offline Access OAuth Token if email is provided
+    if email_address:
+        db_creds = get_oauth_credentials(email_address)
+        if db_creds and db_creds.get("refresh_token"):
+            client_config = _get_client_config()
+            creds = Credentials(
+                token=db_creds["access_token"],
+                refresh_token=db_creds["refresh_token"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_config.get("client_id"),
+                client_secret=client_config.get("client_secret"),
+                scopes=SCOPES
+            )
+            logger.info(f"[GmailReader] Using OAuth refresh token for {email_address}")
+            return build('gmail', 'v1', credentials=creds)
+
+    # 2. Fallback to Service Account
     sa_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "service_account.json")
     
     if os.path.exists(sa_path):
@@ -29,8 +50,6 @@ def get_gmail_service():
         if not sa_json:
             raise FileNotFoundError("Service-account key not found.")
         
-        import json
-        import base64
         if sa_json.startswith("{"):
             info = json.loads(sa_json)
         else:
@@ -38,7 +57,23 @@ def get_gmail_service():
             
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
         
+    logger.info("[GmailReader] Using Service Account credentials mapped to me")
     return build('gmail', 'v1', credentials=creds)
+
+
+def _get_client_config():
+    """Reads the local client_secret.json needed to refresh tokens"""
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client_secret.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r") as f:
+        data = json.load(f)
+        web = data.get("web") or data.get("installed", {})
+        return {
+            "client_id": web.get("client_id"),
+            "client_secret": web.get("client_secret")
+        }
+
 
 def process_new_emails(email_address: str, history_id: str):
     """
@@ -47,7 +82,7 @@ def process_new_emails(email_address: str, history_id: str):
     or direct service account inbox if using a centralized webhook.
     """
     try:
-        service = get_gmail_service()
+        service = get_gmail_service(email_address)
         
         # Searching unread replies
         logger.info(f"[GmailReader] Fetching unread Interview-Replies for {email_address}...")

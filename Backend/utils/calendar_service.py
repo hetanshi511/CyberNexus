@@ -14,8 +14,10 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from google.oauth2 import service_account
-from google.oauth2.credentials import Credentials
+from google.oauth2.credentials import Credentials as GoogleCredentials
 from googleapiclient.discovery import build
+
+from utils.db import get_oauth_credentials
 
 logger = logging.getLogger("scheduler_agent")
 
@@ -37,17 +39,32 @@ def get_calendar_service_from_token(access_token: str):
     Build a Calendar API service using the recruiter's OAuth access token
     obtained from Firebase ``signInWithPopup``.
     """
-    credentials = Credentials(token=access_token)
+    credentials = GoogleCredentials(token=access_token)
     service = build("calendar", "v3", credentials=credentials)
     logger.info("Google Calendar service initialised (OAuth user token).")
     return service
 
 
-def get_calendar_service():
+def get_calendar_service(email_address: str = None):
     """
-    Build a Calendar API service using the service-account key (fallback).
-    Supports both file and GOOGLE_SERVICE_ACCOUNT_JSON env var.
+    Build a Calendar API service using the Offline OAuth key (if available)
+    or fallback to the service-account key.
     """
+    if email_address:
+        db_creds = get_oauth_credentials(email_address)
+        if db_creds and db_creds.get("refresh_token"):
+            client_config = _get_client_config()
+            creds = GoogleCredentials(
+                token=db_creds["access_token"],
+                refresh_token=db_creds["refresh_token"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_config.get("client_id"),
+                client_secret=client_config.get("client_secret"),
+                scopes=SCOPES
+            )
+            logger.info(f"Google Calendar service initialised via DB refresh token for {email_address}.")
+            return build("calendar", "v3", credentials=creds)
+
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         creds = service_account.Credentials.from_service_account_file(
             SERVICE_ACCOUNT_FILE, scopes=SCOPES
@@ -71,6 +88,19 @@ def get_calendar_service():
     service = build("calendar", "v3", credentials=creds)
     logger.info("Google Calendar service initialised (service account).")
     return service
+
+def _get_client_config():
+    """Reads the local client_secret.json needed to refresh tokens"""
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client_secret.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r") as f:
+        data = json.load(f)
+        web = data.get("web") or data.get("installed", {})
+        return {
+            "client_id": web.get("client_id"),
+            "client_secret": web.get("client_secret")
+        }
 
 
 # ── Query busy slots ───────────────────────────────────────────────────

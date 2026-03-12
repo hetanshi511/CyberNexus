@@ -20,6 +20,7 @@ from agents.resume_reviewer.agent import run_resume_reviewer_agent
 
 from routes.scheduler_routes import router as scheduler_router
 from routes.gmail_webhook_routes import router as gmail_webhook_router
+from routes.auth_routes import router as auth_router
 
 from utils.firebase_auth import get_current_tenant
 from utils.email_pdf import send_raw_pdf_email
@@ -59,6 +60,7 @@ app.add_middleware(
 # --- Register Routers ---
 app.include_router(scheduler_router)
 app.include_router(gmail_webhook_router)
+app.include_router(auth_router)
 
 # Request Logging Middleware
 @app.middleware("http")
@@ -354,15 +356,38 @@ def start_scheduler():
 def register_gmail_watch():
     """Register Gmail watch for Pub/Sub push notifications. Expires in 7 days."""
     try:
-        service = get_gmail_service()
-        # Ensure the topic exists in your GCP project: projects/invinsense-marketplace/topics/gmail-interview-replies
-        # Replace invinsense-marketplace if your GCP project ID differs
+        from utils.db import engine
+        from sqlalchemy import text
+        
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT email FROM user_oauth_tokens ORDER BY updated_at DESC LIMIT 1")).fetchone()
+            
+        if not row:
+            logger.warning("No OAuth token found in DB. Skipping automated watch registration.")
+            return
+
+        email = row[0]
+        service = get_gmail_service(email_address=email)
+        
+        results = service.users().labels().list(userId='me').execute()
+        labels = results.get('labels', [])
+        
+        target_label_id = None
+        for label in labels:
+            if label['name'].lower() == 'interview-replies':
+                target_label_id = label['id']
+                break
+                
+        if not target_label_id:
+            logger.warning(f"Could not find label 'Interview-Replies' for {email}! Please create it.")
+            return
+            
         request = {
-            "labelIds": ["Interview-Replies"],
-            "topicName": "projects/invinsense-marketplace/topics/gmail-interview-replies"
+            "labelIds": [target_label_id],
+            "topicName": "projects/ai-marketplace-c169b/topics/gmail-interview-replies"
         }
         res = service.users().watch(userId="me", body=request).execute()
-        logger.info(f"Gmail watch registered successfully: {res}")
+        logger.info(f"Gmail watch registered successfully for {email}: {res}")
     except Exception as e:
         logger.error(f"Failed to register Gmail watch: {e}", exc_info=True)
 

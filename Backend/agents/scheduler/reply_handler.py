@@ -16,7 +16,7 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
     logger.info(f"[ReplyHandler] Action: {intent} on {invite_id}")
     
     try:
-        service = get_calendar_service()
+        service = get_calendar_service(recruiter_email)
         
         # Search the recruiter's calendar for the invite ID
         now = datetime.utcnow().isoformat() + 'Z'
