@@ -53,8 +53,13 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
             logger.info(f"[ReplyHandler] Canceled event {event_id}")
             
         elif intent == "reschedule":
-            # Cancel the old event
-            service.events().delete(calendarId=recruiter_email, eventId=event_id).execute()
+            logger.info(f"[ReplyHandler] Processing reschedule request for {invite_id}")
+            
+            # Get old event timing
+            old_start = datetime.fromisoformat(event["start"]["dateTime"].replace("Z",""))
+            old_end = datetime.fromisoformat(event["end"]["dateTime"].replace("Z",""))
+            
+            logger.info(f"[ReplyHandler] Old interview slot: {old_start} → {old_end}")
             
             # Reconstruct details
             summary = event.get('summary', '') 
@@ -76,12 +81,13 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
             if email_match:
                 clean_email = email_match.group(1)
             
-            # Find new slot (next 30 days)
+            # Collect busy slots for next 30 days
             from utils.slot_generator import IST
             today = datetime.now(IST).replace(tzinfo=None)
             
             all_busy = []
             check_date = today
+            
             for _ in range(30):
                 try:
                     day_busy = get_busy_slots(service, recruiter_email, check_date)
@@ -90,13 +96,43 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
                     pass
                 check_date += timedelta(days=1)
                 
-            slot = find_available_slot(today, all_busy)
+            # Add old slot to busy list so it won't be selected again
+            all_busy.append((old_start, old_end))
+            
+            # If candidate suggested time
+            slot = None
+            if preferred_time:
+                try:
+                    pref_dt = datetime.fromisoformat(preferred_time)
+                    logger.info(f"[ReplyHandler] Candidate preferred time: {pref_dt}")
+                    
+                    # Check if preferred slot conflicts
+                    conflict = False
+                    for busy_start, busy_end in all_busy:
+                        if busy_start <= pref_dt < busy_end:
+                            conflict = True
+                            break
+                            
+                    if not conflict:
+                        slot = pref_dt
+                        logger.info(f"[ReplyHandler] Using candidate preferred slot: {slot}")
+                        
+                except Exception:
+                    logger.warning(f"[ReplyHandler] Could not parse preferred_time: {preferred_time}")
+                    
+            # If preferred time not usable, auto-find slot
+            if not slot:
+                slot = find_available_slot(today, all_busy)
+                logger.info(f"[ReplyHandler] Auto-selected new slot: {slot}")
+                
             if not slot:
                 logger.warning(f"[ReplyHandler] Could not find any auto-reschedule slot for {invite_id}.")
                 return
                 
             start_dt = slot
             end_dt = start_dt + timedelta(minutes=SLOT_DURATION_MINUTES)
+            
+            logger.info(f"[ReplyHandler] Creating rescheduled event at {start_dt}")
             
             # Recover or generate meeting link
             meeting_link = ""
@@ -119,6 +155,7 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
                 f"Rescheduled automatically based on candidate reply. ID: {invite_id}"
             )
             
+            # Create new event FIRST
             new_ev = create_calendar_event(
                 service=service,
                 calendar_id=recruiter_email,
@@ -129,6 +166,17 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
                 meeting_link=meeting_link
             )
             
+            logger.info(f"[ReplyHandler] New calendar event created for {invite_id}")
+            
+            # Delete old event AFTER new one created
+            service.events().delete(
+                calendarId=recruiter_email,
+                eventId=event_id
+            ).execute()
+            
+            logger.info(f"[ReplyHandler] Old calendar event deleted for {invite_id}")
+            
+            # Send updated interview email
             send_interview_email(
                 candidate_name=candidate_name,
                 candidate_email=clean_email,
@@ -138,7 +186,7 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
                 recruiter_name=recruiter_email,
                 invite_id=invite_id
             )
-            logger.info(f"[ReplyHandler] Rescheduled event {invite_id} for {start_dt}")
+            logger.info(f"[ReplyHandler] Reschedule email sent for {invite_id}")
             
     except Exception as e:
         logger.error(f"[ReplyHandler] Failed handling reply for {invite_id}: {e}", exc_info=True)
