@@ -66,9 +66,9 @@ def process_new_emails(email_address: str, history_id: str):
     try:
         service = get_gmail_service(email_address)
         
-        # Searching unread replies
-        logger.info(f"[GmailReader] Fetching unread Interview-Replies for {email_address}...")
-        results = service.users().messages().list(userId='me', q='is:unread label:Interview-Replies').execute()
+        # Searching unread replies (removing label filter to ensure we catch all unread replies even if filters fail)
+        logger.info(f"[GmailReader] Fetching unread emails for {email_address}...")
+        results = service.users().messages().list(userId='me', q='is:unread').execute()
         messages = results.get('messages', [])
         
         if not messages:
