@@ -18,8 +18,8 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
     try:
         service = get_calendar_service(recruiter_email)
         
-        # Search the recruiter's calendar for the invite ID
-        now = datetime.utcnow().isoformat() + 'Z'
+        # Search the recruiter's calendar for the invite ID starting 6 hours ago
+        now = (datetime.utcnow() - timedelta(hours=6)).isoformat() + 'Z'
         events_result = service.events().list(
             calendarId=recruiter_email, 
             timeMin=now,
@@ -28,11 +28,17 @@ def handle_reply(recruiter_email: str, invite_id: str, intent: str, preferred_ti
         ).execute()
         
         events = events_result.get('items', [])
-        if not events:
-            logger.warning(f"[ReplyHandler] Cannot find future calendar event for {invite_id}.")
+        
+        event = None
+        for ev in events:
+            if invite_id in ev.get("summary", ""):
+                event = ev
+                break
+                
+        if not event:
+            logger.warning(f"[ReplyHandler] Cannot find calendar event for {invite_id}.")
             return
             
-        event = events[0]
         event_id = event['id']
         
         if intent == "confirm":

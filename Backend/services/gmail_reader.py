@@ -17,6 +17,8 @@ from agents.scheduler.reply_handler import handle_reply
 # Fetches unread replies from Gmail and triggers analysis/handling.
 # ---------------------------------------------------------------------------
 
+PROCESSED_MESSAGES = set()
+
 logger = logging.getLogger("scheduler_agent")
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
@@ -77,6 +79,12 @@ def process_new_emails(email_address: str, history_id: str):
             
         for msg in messages:
             msg_id = msg['id']
+            
+            if msg_id in PROCESSED_MESSAGES:
+                logger.info(f"[GmailReader] Skipping duplicate msg {msg_id}")
+                continue
+            PROCESSED_MESSAGES.add(msg_id)
+            
             message_data = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
             
             headers = message_data.get('payload', {}).get('headers', [])
