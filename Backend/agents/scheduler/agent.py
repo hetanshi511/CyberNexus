@@ -185,7 +185,6 @@ def create_event(state: SchedulerState) -> dict:
             start_dt=start_dt,
             end_dt=end_dt,
             meeting_link=state["meeting_link"],
-            attendees=[{"email": state["candidate_email"]}],
         )
         updates = {"calendar_event_id": event_result["event_id"], "invite_id": invite_id}
         # Override with the real Google Meet link if available

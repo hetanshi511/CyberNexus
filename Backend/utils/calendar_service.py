@@ -162,7 +162,6 @@ def create_calendar_event(
     start_dt: datetime,
     end_dt: datetime,
     meeting_link: str,
-    attendees: List[dict] = None,
 ) -> dict:
     """
     Insert a new event into the recruiter's calendar.
@@ -186,9 +185,6 @@ def create_calendar_event(
             "useDefault": True,
         },
     }
-    
-    if attendees:
-        base_event["attendees"] = attendees
 
     # ── Attempt 1: with real Google Meet link ──────────────────────────
     try:
@@ -210,7 +206,6 @@ def create_calendar_event(
                 calendarId=calendar_id,
                 body=event_with_meet,
                 conferenceDataVersion=1,
-                sendUpdates="all",
             )
             .execute()
         )
@@ -227,8 +222,7 @@ def create_calendar_event(
             service.events()
             .insert(
                 calendarId=calendar_id,
-                body=base_event,
-                sendUpdates="all"
+                body=base_event
             )
             .execute()
         )

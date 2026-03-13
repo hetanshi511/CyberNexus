@@ -6,8 +6,9 @@ Sends interview-confirmation emails to candidates via SMTP.
 import os
 import json
 import base64
+import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 
 from google.oauth2.credentials import Credentials
@@ -85,6 +86,33 @@ def send_interview_email(
             scopes=["https://www.googleapis.com/auth/gmail.modify"]
         )
         
+        # Build ICS content
+        dt_start = interview_datetime.strftime("%Y%m%dT%H%M%S")
+        end_time = interview_datetime + timedelta(minutes=30)
+        dt_end = end_time.strftime("%Y%m%dT%H%M%S")
+        dt_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        uid = f"{uuid.uuid4().hex}@invinsense.marketplace"
+
+        ics_content = (
+            "BEGIN:VCALENDAR\r\n"
+            "VERSION:2.0\r\n"
+            "PRODID:-//Invinsense AI Marketplace//Scheduler Agent//EN\r\n"
+            "METHOD:REQUEST\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            f"DTSTAMP:{dt_stamp}\r\n"
+            f"DTSTART;TZID=Asia/Kolkata:{dt_start}\r\n"
+            f"DTEND;TZID=Asia/Kolkata:{dt_end}\r\n"
+            f"SUMMARY:{subject}\r\n"
+            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body.replace(chr(10), '\\n')}\r\n"
+            f"ORGANIZER;CN=\"{recruiter_name}\":mailto:{recruiter_email}\r\n"
+            f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{candidate_email}\r\n"
+            "STATUS:CONFIRMED\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR"
+        )
+        msg.add_attachment(ics_content.encode("utf-8"), maintype="text", subtype="calendar", filename="invite.ics", params={"method": "REQUEST"})
+
         service = build('gmail', 'v1', credentials=creds)
         encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         
@@ -168,6 +196,33 @@ def send_reschedule_email(
             scopes=["https://www.googleapis.com/auth/gmail.modify"]
         )
         
+        # Build ICS content
+        dt_start = interview_datetime.strftime("%Y%m%dT%H%M%S")
+        end_time = interview_datetime + timedelta(minutes=30)
+        dt_end = end_time.strftime("%Y%m%dT%H%M%S")
+        dt_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        uid = f"{uuid.uuid4().hex}@invinsense.marketplace"
+
+        ics_content = (
+            "BEGIN:VCALENDAR\r\n"
+            "VERSION:2.0\r\n"
+            "PRODID:-//Invinsense AI Marketplace//Scheduler Agent//EN\r\n"
+            "METHOD:REQUEST\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            f"DTSTAMP:{dt_stamp}\r\n"
+            f"DTSTART;TZID=Asia/Kolkata:{dt_start}\r\n"
+            f"DTEND;TZID=Asia/Kolkata:{dt_end}\r\n"
+            f"SUMMARY:{subject}\r\n"
+            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body.replace(chr(10), '\\n')}\r\n"
+            f"ORGANIZER;CN=\"{recruiter_name}\":mailto:{recruiter_email}\r\n"
+            f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{candidate_email}\r\n"
+            "STATUS:CONFIRMED\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR"
+        )
+        msg.add_attachment(ics_content.encode("utf-8"), maintype="text", subtype="calendar", filename="invite.ics", params={"method": "REQUEST"})
+
         service = build('gmail', 'v1', credentials=creds)
         encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         
