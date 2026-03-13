@@ -162,6 +162,7 @@ def create_calendar_event(
     start_dt: datetime,
     end_dt: datetime,
     meeting_link: str,
+    attendees: List[dict] = None,
 ) -> dict:
     """
     Insert a new event into the recruiter's calendar.
@@ -185,6 +186,9 @@ def create_calendar_event(
             "useDefault": True,
         },
     }
+    
+    if attendees:
+        base_event["attendees"] = attendees
 
     # ── Attempt 1: with real Google Meet link ──────────────────────────
     try:

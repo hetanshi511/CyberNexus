@@ -194,6 +194,7 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
                 start_dt=start_dt,
                 end_dt=end_dt,
                 meeting_link=meeting_link,
+                attendees=[{"email": clean_email}],
             )
 
             logger.info(f"[ReplyHandler] New event created {new_event['event_id']}")
