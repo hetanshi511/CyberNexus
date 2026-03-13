@@ -210,6 +210,7 @@ def create_calendar_event(
                 calendarId=calendar_id,
                 body=event_with_meet,
                 conferenceDataVersion=1,
+                sendUpdates="all",
             )
             .execute()
         )
@@ -224,7 +225,11 @@ def create_calendar_event(
         # ── Attempt 2: plain event without conferenceData ─────────────
         created_event = (
             service.events()
-            .insert(calendarId=calendar_id, body=base_event)
+            .insert(
+                calendarId=calendar_id,
+                body=base_event,
+                sendUpdates="all"
+            )
             .execute()
         )
         logger.info("Calendar event created WITHOUT Google Meet (plain event).")
