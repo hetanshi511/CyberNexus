@@ -208,13 +208,16 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
             logger.info(f"[ReplyHandler] Old event removed")
 
             # ── Send updated email ───────────────────────────────
-            send_interview_email(
+            from utils.scheduler_email_service import send_reschedule_email
+            # Need to get recruiter name safely, passing email fallback if not matched
+            recruiter_name_clean = recruiter_email.split('@')[0]
+            send_reschedule_email(
                 candidate_name=candidate_name,
                 candidate_email=clean_email,
                 job_role=role,
                 interview_datetime=start_dt,
                 meeting_link=new_event.get("meet_link", meeting_link),
-                recruiter_name=recruiter_name,
+                recruiter_name=recruiter_name_clean,
                 recruiter_email=recruiter_email,
                 invite_id=invite_id,
             )
