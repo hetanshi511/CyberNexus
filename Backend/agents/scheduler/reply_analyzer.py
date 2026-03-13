@@ -26,7 +26,7 @@ Tasks:
 
 Rules:
 - Convert natural language to ISO datetime.
-- If the candidate says "2 PM tomorrow", return ISO datetime.
+- If candidate only gives a time (like "2 PM"), assume the closest upcoming working day for that time. Avoid defaulting to past dates.
 - If no time mentioned, return empty string.
 
 Output JSON only:

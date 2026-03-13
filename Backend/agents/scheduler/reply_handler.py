@@ -134,8 +134,36 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
                         start_dt = candidate_start
                         logger.info(f"[ReplyHandler] Candidate requested slot {start_dt} is free")
                     else:
-                        start_dt = find_available_slot(candidate_start, busy_slots)
-                        logger.info(f"[ReplyHandler] Candidate slot busy → searching next free: {start_dt}")
+                        from utils.slot_generator import generate_all_slots, _is_working_day
+                        from utils.slot_reasoner import choose_best_slot_with_llm
+                        logger.info("[ReplyHandler] Candidate slot busy → using LLM to choose alternative.")
+
+                        now_ist = datetime.now(IST).replace(tzinfo=None)
+                        earliest_allowed = now_ist + timedelta(hours=1)
+                        avail_slots_str = []
+                        
+                        # Gather actual available slots to feed to LLM
+                        for i in range(10):
+                            day = today + timedelta(days=i)
+                            if not _is_working_day(day):
+                                continue
+                            
+                            for s in generate_all_slots(day):
+                                if s > earliest_allowed and is_slot_free(s, s + timedelta(minutes=SLOT_DURATION_MINUTES), busy_slots):
+                                    avail_slots_str.append(s.isoformat())
+                            
+                            if len(avail_slots_str) > 30:
+                                break
+                        
+                        try:
+                            # Pass max 30 slots to LLM to prevent long generation/context limit
+                            best_slot_iso = choose_best_slot_with_llm(preferred_time, str(avail_slots_str[:30]))
+                            start_dt = datetime.fromisoformat(best_slot_iso)
+                            logger.info(f"[ReplyHandler] AI selected alternative slot: {start_dt}")
+                        except Exception as e:
+                            logger.error(f"[ReplyHandler] LLM slot reasoner failed: {e}")
+                            start_dt = find_available_slot(candidate_start, busy_slots)
+                            logger.info(f"[ReplyHandler] Fallback to find_available_slot: {start_dt}")
                 except Exception:
                     pass
 

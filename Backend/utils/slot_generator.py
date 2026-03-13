@@ -93,7 +93,7 @@ def find_available_slot(
         earliest_allowed = now_ist + timedelta(hours=1)
         free_slots = []
         for slot in all_slots:
-            if slot <= earliest_allowed:
+            if slot <= earliest_allowed or slot < start_date:
                 continue
             slot_end = slot + timedelta(minutes=SLOT_DURATION_MINUTES)
             conflict = False
