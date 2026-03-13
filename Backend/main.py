@@ -338,7 +338,12 @@ async def scheduled_agent_task(linkedin_access_token: str, topic: str):
         logger.error(f"Scheduled job failed: {e}", exc_info=True)
 
 @app.on_event("startup")
-def start_scheduler():
+def startup_event():
+    import logging
+    logger = logging.getLogger("api")
+    logger.info("Scheduler Agent v2 running")
+    from utils.db import init_db
+    init_db()
     scheduler.start()
     logger.info("Scheduler Started")
     

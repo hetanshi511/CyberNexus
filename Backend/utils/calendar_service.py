@@ -136,14 +136,15 @@ def get_busy_slots(
     )
 
     events = events_result.get("items", [])
-    busy: List[datetime] = []
+    busy = []
 
     for event in events:
         start_str = event["start"].get("dateTime", event["start"].get("date"))
+        end_str = event["end"].get("dateTime", event["end"].get("date"))
         try:
-            start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-            # Store as a naive datetime for easy comparison with generated slots
-            busy.append(start_dt.replace(tzinfo=None))
+            start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00")).replace(tzinfo=None)
+            end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00")).replace(tzinfo=None)
+            busy.append((start_dt, end_dt))
         except (ValueError, TypeError):
             continue
 
