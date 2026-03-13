@@ -99,49 +99,55 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
             if m:
                 clean_email = m.group(1)
 
-            # ── Determine new slot ───────────────────────────────
-            # Collect busy slots for next 30 days
+            # ── Collect Recruiter Busy Slots (14 days) ───────────
+            from utils.calendar_service import get_busy_slots
             from utils.slot_generator import IST
+
+            busy_slots = []
             today = datetime.now(IST).replace(tzinfo=None)
-            
-            all_busy = []
-            check_date = today
-            for _ in range(30):
+
+            for i in range(14):
+                date_to_check = today + timedelta(days=i)
                 try:
-                    day_busy = get_busy_slots(service, recruiter_email, check_date)
-                    all_busy.extend(day_busy)
+                    busy_slots.extend(get_busy_slots(service, recruiter_email, date_to_check))
                 except Exception:
                     pass
-                check_date += timedelta(days=1)
-                
-            # Add old slot to busy list so it won't be selected again
-            all_busy.append((old_start, old_end))
-            
-            slot = None
+
+            # Block the previous event
+            busy_slots.append((old_start, old_end))
+
+            # ── Determine new slot ───────────────────────────────
+            candidate_slot = None
 
             if preferred_time:
                 try:
-                    pref_dt = datetime.fromisoformat(preferred_time)
-                    logger.info(f"[ReplyHandler] Candidate requested {pref_dt}")
-                    
-                    # Check if preferred slot conflicts
-                    conflict = False
-                    for busy_start, busy_end in all_busy:
-                        if busy_start <= pref_dt < busy_end:
-                            conflict = True
-                            break
-                            
-                    if not conflict:
-                        slot = pref_dt
-                        logger.info(f"[ReplyHandler] Validated requested slot {slot}")
-                    else:
-                        logger.warning(f"[ReplyHandler] Requested slot {pref_dt} conflicts with recruiter calendar.")
-                except Exception as e:
-                    logger.warning(f"[ReplyHandler] Could not parse preferred_time: {preferred_time} - {e}")
+                    candidate_slot = datetime.fromisoformat(preferred_time)
+                except Exception:
+                    pass
+
+            def is_slot_free(start, end, busy):
+                for b_start, b_end in busy:
+                    if start < b_end and end > b_start:
+                        return False
+                return True
+
+            slot = None
+            if candidate_slot:
+                end_candidate = candidate_slot + timedelta(minutes=SLOT_DURATION_MINUTES)
+                if is_slot_free(candidate_slot, end_candidate, busy_slots):
+                    slot = candidate_slot
+                    logger.info(f"[ReplyHandler] Candidate requested slot {slot} is free")
+                else:
+                    logger.info("[ReplyHandler] Candidate slot busy → searching next free")
+            
+            if not slot:
+                search_start = candidate_slot if candidate_slot else today
+                slot = find_available_slot(search_start, busy_slots)
+                logger.info(f"[ReplyHandler] Auto slot selected {slot}")
 
             if not slot:
-                slot = find_available_slot(today, all_busy)
-                logger.info(f"[ReplyHandler] Auto slot selected {slot}")
+                logger.warning(f"[ReplyHandler] Could not find any auto-reschedule slot for {invite_id}")
+                return
 
             start_dt = slot
             end_dt = start_dt + timedelta(minutes=SLOT_DURATION_MINUTES)
@@ -181,7 +187,7 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
                 candidate_email=clean_email,
                 job_role=role,
                 interview_datetime=start_dt,
-                meeting_link=new_event.get("meet_link"),
+                meeting_link=new_event.get("meet_link", meeting_link),
                 recruiter_name=recruiter_email,
                 invite_id=invite_id,
             )

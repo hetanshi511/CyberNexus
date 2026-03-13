@@ -4,11 +4,15 @@ Sends interview-confirmation emails to candidates via SMTP.
 """
 
 import os
-import smtplib
+import json
+import base64
 import logging
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from utils.db import get_oauth_credentials
 
 logger = logging.getLogger("scheduler_agent")
 
@@ -23,21 +27,9 @@ def send_interview_email(
     invite_id: str = None
 ) -> bool:
     """
-    Send an interview-confirmation email to the candidate.
-
+    Send an interview-confirmation email to the candidate via Gmail API.
     Returns ``True`` on success, ``False`` otherwise.
-    Uses the same SMTP env-vars as the rest of the platform
-    (``SMTP_SERVER``, ``SMTP_PORT``, ``SMTP_USERNAME``, ``SMTP_PASSWORD``).
     """
-    smtp_server = os.environ.get("SMTP_SERVER")
-    smtp_port   = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user   = os.environ.get("SMTP_USERNAME")
-    smtp_pass   = os.environ.get("SMTP_PASSWORD")
-
-    if not smtp_server:
-        logger.warning("SMTP not configured — skipping interview email.")
-        return False
-
     if invite_id:
         subject = f"Interview Scheduled – {job_role} [{invite_id}]"
     else:
@@ -62,28 +54,47 @@ def send_interview_email(
     )
 
     try:
-        msg = MIMEMultipart()
-        msg["From"]    = smtp_user or "noreply@invinsense.local"
-        msg["To"]      = candidate_email
+        msg = EmailMessage()
+        msg.set_content(body)
+        msg["To"] = candidate_email
+        msg["From"] = recruiter_name
         msg["Subject"] = subject
+        
+        db_creds = get_oauth_credentials(recruiter_name)
+        if not db_creds or not db_creds.get("refresh_token"):
+            logger.error(f"No OAuth tokens found for {recruiter_name} to send email.")
+            return False
+            
+        # Get client_secret.json config
+        client_id = client_secret = None
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client_secret.json")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                data = json.load(f)
+                web = data.get("web") or data.get("installed", {})
+                client_id = web.get("client_id")
+                client_secret = web.get("client_secret")
 
-        msg.attach(MIMEText(body, "plain"))
+        creds = Credentials(
+            token=db_creds["access_token"],
+            refresh_token=db_creds["refresh_token"],
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=["https://www.googleapis.com/auth/gmail.modify"]
+        )
+        
+        service = build('gmail', 'v1', credentials=creds)
+        encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        
+        service.users().messages().send(
+            userId="me", 
+            body={'raw': encoded_message}
+        ).execute()
 
-        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-        server.starttls()
-        if smtp_user and smtp_pass:
-            server.login(smtp_user, smtp_pass)
-
-        server.send_message(msg)
-        server.quit()
-
-        logger.info(f"Interview email sent to {candidate_email}.")
+        logger.info(f"Interview email sent to {candidate_email} via Gmail API.")
         return True
 
-    except OSError as e:
-        logger.error(f"[SchedulerEmail] Network error (Errno 101 / Timeout) when connecting to {smtp_server}:{smtp_port}")
-        logger.error(f"NOTE: Your deployment environment (e.g. Railway or local Docker) may be blocking outbound SMTP connections on port {smtp_port}. Please check platform firewall rules.")
-        return False
     except Exception as e:
         logger.error(f"Failed to send interview email to {candidate_email}: {e}")
         return False
