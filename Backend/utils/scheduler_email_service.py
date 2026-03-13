@@ -24,6 +24,7 @@ def send_interview_email(
     interview_datetime: datetime,
     meeting_link: str,
     recruiter_name: str,
+    recruiter_email: str,
     invite_id: str = None
 ) -> bool:
     """
@@ -57,12 +58,12 @@ def send_interview_email(
         msg = EmailMessage()
         msg.set_content(body)
         msg["To"] = candidate_email
-        msg["From"] = recruiter_name
+        msg["From"] = f"{recruiter_name} <{recruiter_email}>"
         msg["Subject"] = subject
         
-        db_creds = get_oauth_credentials(recruiter_name)
+        db_creds = get_oauth_credentials(recruiter_email)
         if not db_creds or not db_creds.get("refresh_token"):
-            logger.error(f"No OAuth tokens found for {recruiter_name} to send email.")
+            logger.error(f"No OAuth tokens found for {recruiter_email} to send email.")
             return False
             
         # Get client_secret.json config

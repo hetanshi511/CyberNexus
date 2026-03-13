@@ -188,7 +188,8 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
                 job_role=role,
                 interview_datetime=start_dt,
                 meeting_link=new_event.get("meet_link", meeting_link),
-                recruiter_name=recruiter_email,
+                recruiter_name=recruiter_name,
+                recruiter_email=recruiter_email,
                 invite_id=invite_id,
             )
 
