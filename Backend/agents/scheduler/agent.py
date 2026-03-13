@@ -105,18 +105,28 @@ def find_slot(state: SchedulerState) -> dict:
         from utils.slot_generator import IST
         today = datetime.now(IST).replace(tzinfo=None)
 
-        # Gather busy slots for the next 30 working days
-        all_busy = []
+        # Search day-by-day up to 30 working days
         check_date = today
+        slot = None
+        
         for _ in range(30):
             try:
+                # Fetch busy slots for just this single day
                 day_busy = get_busy_slots(service, calendar_id, check_date)
-                all_busy.extend(day_busy)
+                
+                # Try to find a slot within this day
+                slot = find_available_slot(check_date, day_busy)
+                
+                if slot:
+                    # Found a valid slot, stop searching further days to save API calls
+                    break
+                    
             except Exception:
-                pass  # if a single day query fails, continue
+                pass  # if a single day query fails, continue to the next day
+                
+            # Move to the next day and try again
             check_date += timedelta(days=1)
 
-        slot = find_available_slot(today, all_busy)
         if slot is None:
             return {"error": "No available interview slots in the next 30 working days."}
 
