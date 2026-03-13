@@ -11,20 +11,19 @@ You are an interview scheduling assistant.
 Candidate preferred time:
 {candidate_pref}
 
-Available slots for recruiter:
+Available slots:
 {available_slots}
 
-Choose the BEST slot.
-
 Rules:
-1. If candidate preference matches available slot, choose it.
-2. Otherwise choose the closest available slot after the preference.
-3. If no preference, choose the earliest slot.
+1. If candidate preferred time exists in available_slots, choose it.
+2. Otherwise choose the closest slot AFTER the preferred time.
+3. Never choose a slot earlier than the preferred time.
+4. Only choose from available_slots.
 
 Return JSON:
 
 {{
-"selected_slot": "ISO datetime from available slots"
+"selected_slot": "slot from available_slots"
 }}
 """
 

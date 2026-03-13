@@ -117,39 +117,36 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
             busy_slots.append((old_start, old_end))
 
             # ── Determine new slot ───────────────────────────────
-            candidate_slot = None
-
-            if preferred_time:
-                try:
-                    candidate_slot = datetime.fromisoformat(preferred_time)
-                except Exception:
-                    pass
-
-            def is_slot_free(start, end, busy):
-                for b_start, b_end in busy:
-                    if start < b_end and end > b_start:
+            def is_slot_free(start, end, busy_slots_list):
+                for busy_start, busy_end in busy_slots_list:
+                    if start < busy_end and end > busy_start:
                         return False
                 return True
 
-            slot = None
-            if candidate_slot:
-                end_candidate = candidate_slot + timedelta(minutes=SLOT_DURATION_MINUTES)
-                if is_slot_free(candidate_slot, end_candidate, busy_slots):
-                    slot = candidate_slot
-                    logger.info(f"[ReplyHandler] Candidate requested slot {slot} is free")
-                else:
-                    logger.info("[ReplyHandler] Candidate slot busy → searching next free")
-            
-            if not slot:
-                search_start = candidate_slot if candidate_slot else today
-                slot = find_available_slot(search_start, busy_slots)
-                logger.info(f"[ReplyHandler] Auto slot selected {slot}")
+            start_dt = None
 
-            if not slot:
+            if preferred_time:
+                try:
+                    candidate_start = datetime.fromisoformat(preferred_time)
+                    candidate_end = candidate_start + timedelta(minutes=SLOT_DURATION_MINUTES)
+
+                    if is_slot_free(candidate_start, candidate_end, busy_slots):
+                        start_dt = candidate_start
+                        logger.info(f"[ReplyHandler] Candidate requested slot {start_dt} is free")
+                    else:
+                        start_dt = find_available_slot(candidate_start, busy_slots)
+                        logger.info(f"[ReplyHandler] Candidate slot busy → searching next free: {start_dt}")
+                except Exception:
+                    pass
+
+            if not start_dt:
+                start_dt = find_available_slot(today, busy_slots)
+                logger.info(f"[ReplyHandler] Auto slot selected {start_dt}")
+
+            if not start_dt:
                 logger.warning(f"[ReplyHandler] Could not find any auto-reschedule slot for {invite_id}")
                 return
 
-            start_dt = slot
             end_dt = start_dt + timedelta(minutes=SLOT_DURATION_MINUTES)
 
             # Recover meeting link

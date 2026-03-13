@@ -53,7 +53,7 @@ def find_available_slot(
     start_date: datetime,
     busy_slots: List[datetime],
     daily_limit: int = MAX_MEETINGS_PER_DAY,
-    max_search_days: int = 30,
+    max_search_days: int = 10,
 ) -> Optional[datetime]:
     """
     Walk forward from *start_date* and return the first free slot that
@@ -73,9 +73,8 @@ def find_available_slot(
         # Busy slots for this specific date
         day_busy = [
             s for s in busy_slots
-            if (s.date() if isinstance(s, datetime) else s) ==
-               (current_date.date() if isinstance(current_date, datetime) else current_date)
-        ]
+            if s[0].date() == current_date.date()
+]
 
         # Already-booked count for the day
         booked_count = len(day_busy)
@@ -98,9 +97,8 @@ def find_available_slot(
                 continue
             slot_end = slot + timedelta(minutes=SLOT_DURATION_MINUTES)
             conflict = False
-            for busy in day_busy:
-                busy_end = busy + timedelta(minutes=SLOT_DURATION_MINUTES)
-                if slot < busy_end and slot_end > busy:
+            for busy_start, busy_end in day_busy:
+                if slot < busy_end and slot_end > busy_start:
                     conflict = True
                     break
             if not conflict:

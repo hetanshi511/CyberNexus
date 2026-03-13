@@ -15,34 +15,27 @@ def analyze_reply(email_text: str) -> dict:
 You are an AI interview scheduling assistant.
 
 Today's date: {today}
-
-Your task is to analyze a candidate email reply to an interview invitation.
+Timezone: Asia/Kolkata
 
 Candidate email:
 {email_text}
 
 Tasks:
-1. Identify the candidate's intent.
-2. Extract any requested interview time.
-3. Convert natural language times into ISO datetime format.
+1. Identify intent.
+2. Extract requested interview time.
 
-Examples:
-"tomorrow at 4 pm" → convert to ISO datetime.
-"next Monday morning" → convert to approximate ISO datetime.
+Rules:
+- Convert natural language to ISO datetime.
+- If the candidate says "2 PM tomorrow", return ISO datetime.
+- If no time mentioned, return empty string.
 
-If no time is mentioned, return empty string.
-
-Return ONLY JSON in this format:
+Output JSON only:
 
 {{
 "intent": "confirm" | "reschedule" | "reject",
-"preferred_time": "ISO datetime or empty string",
+"preferred_time": "YYYY-MM-DDTHH:MM:SS",
 "confidence": "high | medium | low"
 }}
-
-Rules:
-- Never include explanation.
-- Always return valid JSON.
 """
 
     try:
