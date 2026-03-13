@@ -93,6 +93,7 @@ def send_interview_email(
         dt_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         uid = f"{uuid.uuid4().hex}@invinsense.marketplace"
 
+        body_formatted = body.replace(chr(10), '\\n')
         ics_content = (
             "BEGIN:VCALENDAR\r\n"
             "VERSION:2.0\r\n"
@@ -104,7 +105,7 @@ def send_interview_email(
             f"DTSTART;TZID=Asia/Kolkata:{dt_start}\r\n"
             f"DTEND;TZID=Asia/Kolkata:{dt_end}\r\n"
             f"SUMMARY:{subject}\r\n"
-            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body.replace(chr(10), '\\n')}\r\n"
+            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body_formatted}\r\n"
             f"ORGANIZER;CN=\"{recruiter_name}\":mailto:{recruiter_email}\r\n"
             f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{candidate_email}\r\n"
             "STATUS:CONFIRMED\r\n"
@@ -203,6 +204,7 @@ def send_reschedule_email(
         dt_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         uid = f"{uuid.uuid4().hex}@invinsense.marketplace"
 
+        body_formatted = body.replace(chr(10), '\\n')
         ics_content = (
             "BEGIN:VCALENDAR\r\n"
             "VERSION:2.0\r\n"
@@ -214,7 +216,7 @@ def send_reschedule_email(
             f"DTSTART;TZID=Asia/Kolkata:{dt_start}\r\n"
             f"DTEND;TZID=Asia/Kolkata:{dt_end}\r\n"
             f"SUMMARY:{subject}\r\n"
-            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body.replace(chr(10), '\\n')}\r\n"
+            f"DESCRIPTION:Meeting Link: {meeting_link}\\n{body_formatted}\r\n"
             f"ORGANIZER;CN=\"{recruiter_name}\":mailto:{recruiter_email}\r\n"
             f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{candidate_email}\r\n"
             "STATUS:CONFIRMED\r\n"
