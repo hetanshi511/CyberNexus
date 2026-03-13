@@ -8,10 +8,15 @@ from langchain_core.messages import HumanMessage
 # Uses LLM to determine the candidate's intent from their email reply.
 # ---------------------------------------------------------------------------
 
+from datetime import datetime
+
 logger = logging.getLogger("scheduler_agent")
 
 def analyze_reply(email_text: str) -> dict:
+    from utils.slot_generator import IST
+    now = datetime.now(IST).strftime("%A, %Y-%m-%d %H:%M:%S IST")
     prompt = f"""You are an AI interview scheduling assistant.
+The current date and time is: {now}
 
 Candidate email:
 {email_text}
@@ -21,7 +26,7 @@ Determine candidate intent.
 Return ONLY valid JSON in this exact format, with no explanation:
 {{
 "intent": "confirm" | "reschedule" | "reject",
-"preferred_time": "Extract any requested new time, or empty string"
+"preferred_time": "Extract any requested new time and MUST convert it into a strict ISO 8601 format string (e.g. 2026-03-14T15:00:00). If no time is suggested, leave as empty string"
 }}"""
 
     try:

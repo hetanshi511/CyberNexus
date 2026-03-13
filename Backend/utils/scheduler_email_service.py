@@ -69,7 +69,7 @@ def send_interview_email(
 
         msg.attach(MIMEText(body, "plain"))
 
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
         server.starttls()
         if smtp_user and smtp_pass:
             server.login(smtp_user, smtp_pass)
@@ -80,6 +80,10 @@ def send_interview_email(
         logger.info(f"Interview email sent to {candidate_email}.")
         return True
 
+    except OSError as e:
+        logger.error(f"[SchedulerEmail] Network error (Errno 101 / Timeout) when connecting to {smtp_server}:{smtp_port}")
+        logger.error(f"NOTE: Your deployment environment (e.g. Railway or local Docker) may be blocking outbound SMTP connections on port {smtp_port}. Please check platform firewall rules.")
+        return False
     except Exception as e:
         logger.error(f"Failed to send interview email to {candidate_email}: {e}")
         return False

@@ -100,17 +100,47 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
                 clean_email = m.group(1)
 
             # ── Determine new slot ───────────────────────────────
+            # Collect busy slots for next 30 days
+            from utils.slot_generator import IST
+            today = datetime.now(IST).replace(tzinfo=None)
+            
+            all_busy = []
+            check_date = today
+            for _ in range(30):
+                try:
+                    day_busy = get_busy_slots(service, recruiter_email, check_date)
+                    all_busy.extend(day_busy)
+                except Exception:
+                    pass
+                check_date += timedelta(days=1)
+                
+            # Add old slot to busy list so it won't be selected again
+            all_busy.append((old_start, old_end))
+            
             slot = None
 
             if preferred_time:
                 try:
-                    slot = datetime.fromisoformat(preferred_time)
-                    logger.info(f"[ReplyHandler] Candidate requested {slot}")
-                except:
-                    pass
+                    pref_dt = datetime.fromisoformat(preferred_time)
+                    logger.info(f"[ReplyHandler] Candidate requested {pref_dt}")
+                    
+                    # Check if preferred slot conflicts
+                    conflict = False
+                    for busy_start, busy_end in all_busy:
+                        if busy_start <= pref_dt < busy_end:
+                            conflict = True
+                            break
+                            
+                    if not conflict:
+                        slot = pref_dt
+                        logger.info(f"[ReplyHandler] Validated requested slot {slot}")
+                    else:
+                        logger.warning(f"[ReplyHandler] Requested slot {pref_dt} conflicts with recruiter calendar.")
+                except Exception as e:
+                    logger.warning(f"[ReplyHandler] Could not parse preferred_time: {preferred_time} - {e}")
 
             if not slot:
-                slot = find_available_slot(old_start, [(old_start, old_end)])
+                slot = find_available_slot(today, all_busy)
                 logger.info(f"[ReplyHandler] Auto slot selected {slot}")
 
             start_dt = slot
