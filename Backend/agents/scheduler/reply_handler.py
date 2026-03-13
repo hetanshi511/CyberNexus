@@ -117,33 +117,40 @@ def handle_reply(recruiter_email, invite_id, intent, preferred_time, candidate_e
             busy_slots.append((old_start, old_end))
 
             # ── Determine new slot ───────────────────────────────
-            candidate_slot = None
-
+            from utils.slot_generator import find_multiple_available_slots
+            from agents.scheduler.slot_reasoner import choose_best_slot_with_llm
+            
+            candidate_slot_dt = None
             if preferred_time:
                 try:
-                    candidate_slot = datetime.fromisoformat(preferred_time)
+                    candidate_slot_dt = datetime.fromisoformat(preferred_time)
                 except Exception:
                     pass
 
-            def is_slot_free(start, end, busy):
-                for b_start, b_end in busy:
-                    if start < b_end and end > b_start:
-                        return False
-                return True
-
-            slot = None
-            if candidate_slot:
-                end_candidate = candidate_slot + timedelta(minutes=SLOT_DURATION_MINUTES)
-                if is_slot_free(candidate_slot, end_candidate, busy_slots):
-                    slot = candidate_slot
-                    logger.info(f"[ReplyHandler] Candidate requested slot {slot} is free")
-                else:
-                    logger.info("[ReplyHandler] Candidate slot busy → searching next free")
+            search_start = candidate_slot_dt if candidate_slot_dt else today
             
-            if not slot:
-                search_start = candidate_slot if candidate_slot else today
-                slot = find_available_slot(search_start, busy_slots)
-                logger.info(f"[ReplyHandler] Auto slot selected {slot}")
+            # 1. Backend strictly collects 5 valid choices (No LLM math here)
+            available_slots = find_multiple_available_slots(search_start, busy_slots, count=5)
+            
+            slot = None
+            if available_slots:
+                # Stringify options for the reasoning engine
+                slots_str = [s.isoformat() for s in available_slots]
+                
+                # 2. LLM selects the absolute best match
+                best_iso = choose_best_slot_with_llm(preferred_time, slots_str)
+                
+                if best_iso:
+                    try:
+                        slot = datetime.fromisoformat(best_iso)
+                        logger.info(f"[ReplyHandler] LLM Reasoner chose slot: {slot}")
+                    except Exception:
+                        logger.warning(f"[ReplyHandler] LLM Reasoner returned unparseable slot: {best_iso}")
+                
+                # 3. Fallback to earliest if LLM reasoning fails
+                if not slot:
+                    slot = available_slots[0]
+                    logger.info(f"[ReplyHandler] Auto slot fallback selected: {slot}")
 
             if not slot:
                 logger.warning(f"[ReplyHandler] Could not find any auto-reschedule slot for {invite_id}")

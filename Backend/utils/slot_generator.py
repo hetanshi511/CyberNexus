@@ -97,10 +97,14 @@ def find_available_slot(
             if slot <= earliest_allowed:
                 continue
             slot_end = slot + timedelta(minutes=SLOT_DURATION_MINUTES)
-            conflict = False
             for busy in day_busy:
-                busy_end = busy + timedelta(minutes=SLOT_DURATION_MINUTES)
-                if slot < busy_end and slot_end > busy:
+                if isinstance(busy, tuple):
+                    b_start, b_end = busy
+                else:
+                    b_start = busy
+                    b_end = busy + timedelta(minutes=SLOT_DURATION_MINUTES)
+                    
+                if slot < b_end and slot_end > b_start:
                     conflict = True
                     break
             if not conflict:
@@ -117,3 +121,69 @@ def find_available_slot(
 
     logger.warning(f"No available slot found within {max_search_days} days.")
     return None
+
+
+def find_multiple_available_slots(
+    start_date: datetime,
+    busy_slots: List,
+    count: int = 5,
+    daily_limit: int = MAX_MEETINGS_PER_DAY,
+    max_search_days: int = 30,
+) -> List[datetime]:
+    """
+    Returns up to `count` free slots across `max_search_days`.
+    Needed for the LLM Reasoner to have options to choose from.
+    """
+    current_date = start_date if _is_working_day(start_date) else _next_working_day(start_date)
+    found_slots = []
+
+    now_ist = datetime.now(IST).replace(tzinfo=None)
+    earliest_allowed = now_ist + timedelta(hours=1)
+
+    for _ in range(max_search_days):
+        if len(found_slots) >= count:
+            break
+
+        all_slots = generate_all_slots(current_date)
+
+        day_busy = []
+        for s in busy_slots:
+            if isinstance(s, tuple):
+                if s[0].date() == current_date.date():
+                    day_busy.append(s)
+            elif isinstance(s, datetime):
+                if s.date() == current_date.date():
+                    day_busy.append(s)
+
+        booked_count = len(day_busy)
+        if booked_count >= daily_limit:
+            current_date = _next_working_day(current_date)
+            continue
+
+        for slot in all_slots:
+            if len(found_slots) >= count:
+                break
+                
+            if slot <= earliest_allowed:
+                continue
+                
+            slot_end = slot + timedelta(minutes=SLOT_DURATION_MINUTES)
+            conflict = False
+            
+            for busy in day_busy:
+                if isinstance(busy, tuple):
+                    b_start, b_end = busy
+                else:
+                    b_start = busy
+                    b_end = busy + timedelta(minutes=SLOT_DURATION_MINUTES)
+                    
+                if slot < b_end and slot_end > b_start:
+                    conflict = True
+                    break
+
+            if not conflict:
+                found_slots.append(slot)
+                
+        current_date = _next_working_day(current_date)
+
+    return found_slots
