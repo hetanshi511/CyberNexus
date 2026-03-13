@@ -91,10 +91,17 @@ def find_available_slot(
         # Use IST since Docker runs in UTC but working hours are IST
         now_ist = datetime.now(IST).replace(tzinfo=None)
         earliest_allowed = now_ist + timedelta(hours=1)
+        
+        # Only enforce start_date restriction if we are checking the same day as start_date
+        is_same_day = current_date.date() == start_date.date()
+
         free_slots = []
         for slot in all_slots:
-            if slot <= earliest_allowed or slot < start_date:
+            if slot <= earliest_allowed:
                 continue
+            if is_same_day and slot < start_date:
+                continue
+                
             slot_end = slot + timedelta(minutes=SLOT_DURATION_MINUTES)
             conflict = False
             for busy_start, busy_end in day_busy:
