@@ -251,7 +251,6 @@ const SchedulerDashboard = () => {
                                         <li>Working hours: 9 AM – 5 PM</li>
                                         <li>Monday to Friday only</li>
                                         <li>30-minute interview slots</li>
-                                        <li>Max 4 meetings per day</li>
                                     </ul>
                                 </div>
                             </div>
