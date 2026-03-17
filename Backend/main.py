@@ -21,6 +21,7 @@ from agents.resume_reviewer.agent import run_resume_reviewer_agent
 from routes.scheduler_routes import router as scheduler_router
 from routes.gmail_webhook_routes import router as gmail_webhook_router
 from routes.auth_routes import router as auth_router
+from routes.email_security_routes import router as email_security_router
 
 from utils.firebase_auth import get_current_tenant
 from utils.email_pdf import send_raw_pdf_email
@@ -61,6 +62,7 @@ app.add_middleware(
 app.include_router(scheduler_router)
 app.include_router(gmail_webhook_router)
 app.include_router(auth_router)
+app.include_router(email_security_router)
 
 # Request Logging Middleware
 @app.middleware("http")

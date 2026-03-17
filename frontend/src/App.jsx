@@ -11,6 +11,7 @@ import ContentReviewDashboard from './pages/ContentReviewDashboard';
 import HeaderValidatorDashboard from './pages/HeaderValidatorDashboard';
 import ResumeReviewerDashboard from './pages/ResumeReviewerDashboard';
 import SchedulerDashboard from './pages/SchedulerDashboard';
+import EmailSecurityDashboard from './pages/EmailSecurityDashboard';
 import { AuthProvider } from './context/AuthContext';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="/header-validator-dashboard" element={<HeaderValidatorDashboard />} />
             <Route path="/resume-reviewer-dashboard" element={<ResumeReviewerDashboard />} />
             <Route path="/scheduler-dashboard" element={<SchedulerDashboard />} />
+            <Route path="/email-security-dashboard" element={<EmailSecurityDashboard />} />
             <Route path="/login" element={<Login />} />
           </Routes>
           <Footer />
