@@ -13,6 +13,11 @@ const BADGE = {
         label: '🟢 SAFE',
         bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
+    SUSPICIOUS: {
+        icon: <AlertCircle className="w-4 h-4" />,
+        label: '🟠 SUSPICIOUS',
+        bg: 'bg-orange-50 text-orange-700 border-orange-200',
+    },
     SPAM: {
         icon: <AlertTriangle className="w-4 h-4" />,
         label: '🟡 SPAM',
@@ -63,6 +68,7 @@ const EmailSecurityDashboard = () => {
         ? {
             total: results.scanned,
             safe: results.results.filter(r => r.classification === 'SAFE').length,
+            suspicious: results.results.filter(r => r.classification === 'SUSPICIOUS').length,
             spam: results.results.filter(r => r.classification === 'SPAM').length,
             fraud: results.results.filter(r => r.classification === 'FRAUD').length,
         }
@@ -164,10 +170,11 @@ const EmailSecurityDashboard = () => {
             {results && (
                 <div className="max-w-5xl mx-auto space-y-6">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {[
                             { label: 'Total Scanned', value: summary.total, color: 'text-gray-900', bg: 'bg-white' },
                             { label: 'Safe', value: summary.safe, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                            { label: 'Suspicious', value: summary.suspicious, color: 'text-orange-700', bg: 'bg-orange-50' },
                             { label: 'Spam', value: summary.spam, color: 'text-amber-700', bg: 'bg-amber-50' },
                             { label: 'Fraud', value: summary.fraud, color: 'text-red-700', bg: 'bg-red-50' },
                         ].map(card => (
