@@ -1,6 +1,6 @@
 """
 Email Security Agent — Email Fetcher
-Fetches ONLY new, unread, and unlabeled emails from the Gmail inbox.
+Fetches ONLY new and unlabeled emails from the Gmail inbox (whether read or unread).
 Emails that already have a security label (🟢 SAFE / 🟡 SPAM / 🔴 FRAUD / 🟠 SUSPICIOUS)
 are SKIPPED to prevent re-analysis on refresh.
 
@@ -71,12 +71,12 @@ def _is_already_labeled(service, message_id: str, security_label_ids: set) -> bo
 
 def fetch_unanalyzed_emails(service, max_results: int = 10) -> list:
     """
-    Returns UNREAD inbox emails that:
+    Returns inbox emails that:
       1. Have NOT been labeled by the security agent yet
       2. Are NOT currently being processed (in-memory lock)
 
     Flow:
-      1. Query Gmail for UNREAD INBOX (respects max_results count)
+      1. Query Gmail for INBOX (respects max_results count)
       2. Check existing labels — skip already-classified ones
       3. Check the in-memory lock — skip ones currently being analyzed
       4. Return fresh unlabeled emails for analysis
@@ -87,13 +87,13 @@ def fetch_unanalyzed_emails(service, max_results: int = 10) -> list:
             .messages()
             .list(
                 userId="me",
-                labelIds=["INBOX", "UNREAD"],
+                labelIds=["INBOX"],
                 maxResults=max_results,
             )
             .execute()
         )
         messages = result.get("messages", [])
-        logger.info(f"[EmailFetcher] Found {len(messages)} unread inbox emails.")
+        logger.info(f"[EmailFetcher] Found {len(messages)} inbox emails.")
 
         if not messages:
             return []
