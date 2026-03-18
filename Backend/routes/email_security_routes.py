@@ -51,12 +51,10 @@ async def scan_inbox(
 # ── Webhook Notification ──────────────────────────────────────────────────
 
 @router.post("/api/gmail-security-webhook")
-async def gmail_security_webhook(request: Request, background_tasks: BackgroundTasks):
+async def gmail_security_webhook(request: Request):
     """
-    Pub/Sub push endpoint for real-time email arrival.
-    We just use this as a wake-up signal to trigger a normal scan of unanalyzed emails.
-    The lock in email_fetcher.py prevents duplicate tags from being assigned if multiple
-    webhooks fire closely together.
+    Pub/Sub push endpoint for real-time email arrival notification.
+    When a new email arrives, triggers a 1-email scan automatically.
     """
     try:
         body = await request.json()
@@ -71,34 +69,20 @@ async def gmail_security_webhook(request: Request, background_tasks: BackgroundT
         if not email_address:
             return {"status": "no_email_address"}
 
-        logger.info(f"[Webhook] Security notification for {email_address} — triggering background scan.")
+        logger.info(f"[Webhook] Security notification for {email_address}")
 
-        # Run analysis in the background
-        background_tasks.add_task(
-            _scan_inbox_background, email_address
-        )
-        return {"status": "accepted"}
-
-    except Exception as e:
-        logger.error(f"[Webhook] Error: {e}", exc_info=True)
-        return {"status": "error"}
-
-
-async def _scan_inbox_background(email_address: str):
-    """Wake-up scan for webhook."""
-    try:
         service = get_gmail_service(email_address)
-        
-        # Will naturally skip already-labeled & locked emails!
+        # Only scan 5 latest on webhook push to be fast
         results = await run_email_security_scan(service, max_results=5)
-        
-        if results:
-            logger.info(f"[Webhook] Processed {len(results)} new emails for {email_address}")
-            
+
+        return {"status": "processed", "emails_scanned": len(results)}
+
     except PermissionError as e:
-        logger.warning(f"[Webhook] No OAuth token for {email_address}: {e}")
+        logger.warning(f"[Webhook] No OAuth token: {e}")
+        return {"status": "no_token"}
     except Exception as e:
-        logger.error(f"[Webhook] Background scan failed for {email_address}: {e}", exc_info=True)
+        logger.error(f"[Webhook] Security webhook error: {e}", exc_info=True)
+        return {"status": "error"}
 
 
 # ── Gmail OAuth Connect helpers ──────────────────────────────────────────────
