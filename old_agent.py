@@ -8,12 +8,7 @@ import logging
 from typing import TypedDict, Optional, List
 from langgraph.graph import StateGraph, END
 
-from agents.email_security.email_fetcher import (
-    fetch_unanalyzed_emails, 
-    fetch_single_email_by_id,
-    claim_message,
-    release_message
-)
+from agents.email_security.email_fetcher import fetch_unread_emails
 from agents.email_security.email_parser import parse_email_full, extract_links
 from agents.email_security.heuristic_checker import heuristic_check
 from agents.email_security.virustotal_scanner import scan_attachment, scan_url
@@ -31,7 +26,6 @@ class EmailSecurityState(TypedDict):
     subject: str
     sender: str
     body: str
-    was_unread: bool          # Preserve original read/unread state
     attachments: List[dict]   # [{ filename, data_bytes, size }]
     links: List[str]
     heuristic_flags: List[str]
@@ -40,7 +34,7 @@ class EmailSecurityState(TypedDict):
     llm_classification: str
     llm_confidence: str
     llm_reason: str
-    classification: str       # SAFE | SPAM | SUSPICIOUS | FRAUD (final)
+    classification: str       # SAFE | SPAM | FRAUD (final)
     action_taken: str
     error: Optional[str]
 
@@ -55,7 +49,6 @@ def node_parse(state: EmailSecurityState) -> dict:
         "subject": parsed["subject"],
         "sender": parsed["sender"],
         "body": parsed["body"],
-        "was_unread": parsed["was_unread"],
         "attachments": parsed["attachments"],
         "links": links,
     }
@@ -125,8 +118,7 @@ def node_decide(state: EmailSecurityState) -> dict:
 
 
 def node_action(state: EmailSecurityState) -> dict:
-    # Pass was_unread so we preserve the read status
-    result = take_action(state["service"], state["email_id"], state["classification"], state.get("was_unread", False))
+    result = take_action(state["service"], state["email_id"], state["classification"])
     return {"action_taken": result}
 
 
@@ -158,40 +150,14 @@ _app = _workflow.compile()
 
 async def run_email_security_scan(service, max_results: int = 20) -> list:
     """
-    Manual scan: fetches up to max_results UNREAD + unlabeled emails and analyzes them.
-    Already-labeled emails are skipped to prevent re-analysis on refresh.
-    Returns a list of scan results.
+    Runs the full security scan on unread inbox emails.
+    Returns a list of scan results per email.
     """
-    emails = fetch_unanalyzed_emails(service, max_results=max_results)
-    if not emails:
-        logger.info("[Agent] No new unanalyzed emails to process.")
-        return []
-
-    return await _process_email_stubs(service, emails)
-
-
-async def run_single_email_scan(service, message_id: str) -> list:
-    """
-    Real-time webhook path: analyzes exactly one newly arrived email by ID.
-    Skips if the email already has a security label.
-    Returns a list with 0 or 1 result.
-    """
-    stubs = fetch_single_email_by_id(service, message_id)
-    if not stubs:
-        return []
-    return await _process_email_stubs(service, stubs)
-
-
-async def _process_email_stubs(service, stubs: list) -> list:
-    """Shared internal runner: processes a list of email stubs through the LangGraph pipeline."""
+    emails = fetch_unread_emails(service, max_results=max_results)
     results = []
-    for stub in stubs:
+
+    for stub in emails:
         msg_id = stub["id"]
-        
-        # 1) Atomically claim this email to prevent duplicate processing by webhook races
-        if not claim_message(msg_id):
-            continue
-            
         try:
             initial_state: EmailSecurityState = {
                 "service": service,
@@ -199,7 +165,6 @@ async def _process_email_stubs(service, stubs: list) -> list:
                 "subject": "",
                 "sender": "",
                 "body": "",
-                "was_unread": False,
                 "attachments": [],
                 "links": [],
                 "heuristic_flags": [],
@@ -226,8 +191,5 @@ async def _process_email_stubs(service, stubs: list) -> list:
         except Exception as e:
             logger.error(f"[Agent] Failed to process email {msg_id}: {e}", exc_info=True)
             results.append({"email_id": msg_id, "error": str(e)})
-        finally:
-            # 2) Release the lock when done
-            release_message(msg_id)
 
     return results
