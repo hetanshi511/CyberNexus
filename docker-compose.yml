@@ -35,6 +35,8 @@ services:
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USERNAME=${SMTP_USERNAME}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
+      - FRONTEND_URL=${FRONTEND_URL}
     volumes:
       - ./Backend:/app
     depends_on:
