@@ -48,14 +48,15 @@ async def scan_inbox(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Real-time Webhook ────────────────────────────────────────────────────────
+# ── Webhook Notification ──────────────────────────────────────────────────
 
 @router.post("/api/gmail-security-webhook")
 async def gmail_security_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Pub/Sub push endpoint for real-time email arrival.
-    Processes ONLY the single newly arrived email identified in the notification.
-    Returns 200 immediately; analysis runs in the background.
+    We just use this as a wake-up signal to trigger a normal scan of unanalyzed emails.
+    The lock in email_fetcher.py prevents duplicate tags from being assigned if multiple
+    webhooks fire closely together.
     """
     try:
         body = await request.json()
@@ -66,66 +67,38 @@ async def gmail_security_webhook(request: Request, background_tasks: BackgroundT
 
         data = json.loads(base64.b64decode(data_encoded).decode("utf-8"))
         email_address = data.get("emailAddress", "")
-        history_id = data.get("historyId")
 
         if not email_address:
             return {"status": "no_email_address"}
 
-        logger.info(f"[Webhook] Security notification for {email_address} (historyId={history_id})")
+        logger.info(f"[Webhook] Security notification for {email_address} — triggering background scan.")
 
-        # Run analysis in the background so Pub/Sub doesn't timeout waiting
+        # Run analysis in the background
         background_tasks.add_task(
-            _analyze_new_email_background, email_address, history_id
+            _scan_inbox_background, email_address
         )
         return {"status": "accepted"}
 
-    except PermissionError as e:
-        logger.warning(f"[Webhook] No OAuth token: {e}")
-        return {"status": "no_token"}
     except Exception as e:
-        logger.error(f"[Webhook] Security webhook error: {e}", exc_info=True)
+        logger.error(f"[Webhook] Error: {e}", exc_info=True)
         return {"status": "error"}
 
 
-async def _analyze_new_email_background(email_address: str, history_id: str):
-    """
-    Background task: use Gmail history API to find the exact new message ID,
-    then run a single-email security scan on it.
-    """
+async def _scan_inbox_background(email_address: str):
+    """Wake-up scan for webhook."""
     try:
         service = get_gmail_service(email_address)
-
-        # Use historyId to find the specific new message(s) since the last known state
-        history_result = service.users().history().list(
-            userId="me",
-            startHistoryId=history_id,
-            historyTypes=["messageAdded"],
-            labelId="INBOX",
-        ).execute()
-
-        history_records = history_result.get("history", [])
-        new_message_ids = []
-        for record in history_records:
-            for added in record.get("messagesAdded", []):
-                new_message_ids.append(added["message"]["id"])
-
-        if not new_message_ids:
-            logger.info(f"[Webhook] No new inbox messages found for historyId={history_id}")
-            return
-
-        # Analyze each newly arrived email (usually just 1)
-        for msg_id in new_message_ids:
-            logger.info(f"[Webhook] Analyzing new email {msg_id} for {email_address}")
-            results = await run_single_email_scan(service, msg_id)
-            if results:
-                r = results[0]
-                logger.info(
-                    f"[Webhook] Done: {msg_id} classified as {r.get('classification')} "
-                    f"(trust={r.get('trust_level')})"
-                )
-
+        
+        # Will naturally skip already-labeled & locked emails!
+        results = await run_email_security_scan(service, max_results=5)
+        
+        if results:
+            logger.info(f"[Webhook] Processed {len(results)} new emails for {email_address}")
+            
+    except PermissionError as e:
+        logger.warning(f"[Webhook] No OAuth token for {email_address}: {e}")
     except Exception as e:
-        logger.error(f"[Webhook] Background analysis failed for {email_address}: {e}", exc_info=True)
+        logger.error(f"[Webhook] Background scan failed for {email_address}: {e}", exc_info=True)
 
 
 # ── Gmail OAuth Connect helpers ──────────────────────────────────────────────

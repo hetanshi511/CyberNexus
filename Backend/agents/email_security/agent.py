@@ -8,7 +8,12 @@ import logging
 from typing import TypedDict, Optional, List
 from langgraph.graph import StateGraph, END
 
-from agents.email_security.email_fetcher import fetch_unanalyzed_emails, fetch_single_email_by_id
+from agents.email_security.email_fetcher import (
+    fetch_unanalyzed_emails, 
+    fetch_single_email_by_id,
+    claim_message,
+    release_message
+)
 from agents.email_security.email_parser import parse_email_full, extract_links
 from agents.email_security.heuristic_checker import heuristic_check, analyze_sender_trust
 from agents.email_security.virustotal_scanner import scan_attachment, scan_url
@@ -219,6 +224,11 @@ async def _process_email_stubs(service, stubs: list) -> list:
     results = []
     for stub in stubs:
         msg_id = stub["id"]
+        
+        # 1) Atomically claim this email to prevent duplicate processing by webhook races
+        if not claim_message(msg_id):
+            continue
+            
         try:
             initial_state: EmailSecurityState = {
                 "service": service,
@@ -256,5 +266,8 @@ async def _process_email_stubs(service, stubs: list) -> list:
         except Exception as e:
             logger.error(f"[Agent] Failed to process email {msg_id}: {e}", exc_info=True)
             results.append({"email_id": msg_id, "error": str(e)})
+        finally:
+            # 2) Release the lock when done
+            release_message(msg_id)
 
     return results
