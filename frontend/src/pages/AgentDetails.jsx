@@ -277,6 +277,8 @@ const AgentDetails = () => {
                                                 navigate('/resume-reviewer-dashboard');
                                             } else if (agent.id === 'scheduler-agent') {
                                                 navigate('/scheduler-dashboard');
+                                            } else if (agent.id === 'email-security') {
+                                                navigate('/email-security-dashboard');
                                             } else {
                                                 setShowRunModal(true);
                                             }

@@ -10,31 +10,33 @@ from langgraph.graph import StateGraph, END
 
 from agents.email_security.email_fetcher import fetch_unread_emails
 from agents.email_security.email_parser import parse_email_full, extract_links
-from agents.email_security.heuristic_checker import heuristic_check
+from agents.email_security.heuristic_checker import heuristic_check, analyze_sender_trust
 from agents.email_security.virustotal_scanner import scan_attachment, scan_url
 from agents.email_security.llm_analyzer import analyze_email_with_llm
 from agents.email_security.action_taker import take_action
 
 logger = logging.getLogger("email_security")
 
-
 # ── State ──────────────────────────────────────────────────────────────────
 
 class EmailSecurityState(TypedDict):
-    service: object           # Gmail API service (not serialised — in-memory only)
+    service: object           # Gmail API service (not serialised)
     email_id: str
     subject: str
     sender: str
     body: str
+    headers: list             # Raw headers for SPF/DKIM
+    was_unread: bool          # Original read state
     attachments: List[dict]   # [{ filename, data_bytes, size }]
     links: List[str]
     heuristic_flags: List[str]
+    trust_score: dict         # domain trust analysis
     attachment_results: List[dict]
     link_results: List[dict]
     llm_classification: str
     llm_confidence: str
     llm_reason: str
-    classification: str       # SAFE | SPAM | FRAUD (final)
+    classification: str       # SAFE | SPAM | SUSPICIOUS | FRAUD (final)
     action_taken: str
     error: Optional[str]
 
@@ -49,14 +51,20 @@ def node_parse(state: EmailSecurityState) -> dict:
         "subject": parsed["subject"],
         "sender": parsed["sender"],
         "body": parsed["body"],
+        "headers": parsed.get("headers", []),
+        "was_unread": parsed.get("was_unread", False),
         "attachments": parsed["attachments"],
         "links": links,
     }
 
 
 def node_heuristic(state: EmailSecurityState) -> dict:
+    # 1. Content Flags
     flags = heuristic_check(state["subject"], state["body"], state["sender"])
-    return {"heuristic_flags": flags}
+    # 2. Domain Trust (SPF/DKIM/Spoofing)
+    trust = analyze_sender_trust(state["sender"], state.get("headers", []))
+    
+    return {"heuristic_flags": flags, "trust_score": trust}
 
 
 def node_scan_attachments(state: EmailSecurityState) -> dict:
@@ -71,7 +79,6 @@ def node_scan_attachments(state: EmailSecurityState) -> dict:
 def node_scan_links(state: EmailSecurityState) -> dict:
     results = []
     links = state.get("links", [])
-    # Limit to first 5 links to avoid excessive API calls
     for url in links[:5]:
         r = scan_url(url)
         results.append(r)
@@ -96,29 +103,62 @@ def node_llm_analyze(state: EmailSecurityState) -> dict:
 
 def node_decide(state: EmailSecurityState) -> dict:
     """
-    Final decision combining VirusTotal hard signals + LLM result + heuristics.
-    Priority: VT malicious > LLM FRAUD > heuristics > LLM SPAM > SAFE
+    Final decision combining VirusTotal, Sender Trust, and LLM result.
+    Priority:
+      1. VirusTotal malicious → FRAUD
+      2. Sender spoofed → FRAUD
+      3. HIGH_TRUST domain + SPF/DKIM pass → SAFE override (if suspicous content → SUSPICIOUS)
+      4. MEDIUM_TRUST → defer to LLM
+      5. LOW_TRUST + Heuristics → SPAM
+      6. LLM result fallback
     """
     att_results = state.get("attachment_results", [])
     link_results = state.get("link_results", [])
+    trust_info = state.get("trust_score", {})
+    trust_lvl = trust_info.get("trust_level", "LOW_TRUST")
+    has_heuristics = len(state.get("heuristic_flags", [])) > 0
+    llm = state.get("llm_classification", "SAFE")
 
-    # Hard rule: any VirusTotal malicious → FRAUD immediately
+    # 1. Hard Rule: VirusTotal malicious = FRAUD
     if any(r.get("malicious", 0) > 0 for r in att_results + link_results):
         classification = "FRAUD"
-    elif state.get("llm_classification") == "FRAUD":
+        
+    # 2. Hard Rule: Spoofed Domain = FRAUD
+    elif trust_info.get("is_spoofed"):
         classification = "FRAUD"
-    elif state.get("heuristic_flags"):
-        # Upgrade to SPAM if heuristics found something
-        classification = "SPAM" if state.get("llm_classification") == "SAFE" else state.get("llm_classification", "SPAM")
+        
+    # 3. Trusted Sender Override (HIGH_TRUST)
+    elif trust_lvl == "HIGH_TRUST":
+        # Never mark trusted domains as spam. If LLM or heuristics flagged it => SUSPICIOUS
+        if has_heuristics or llm in ["SPAM", "FRAUD"]:
+            classification = "SUSPICIOUS"
+        else:
+            classification = "SAFE"
+            
+    # 4. Medium Trust (Trusted domain, but missing SPF/DKIM)
+    elif trust_lvl == "MEDIUM_TRUST":
+        classification = llm  # Trust LLM more here
+        
+    # 5. Low Trust + Suspicious Content = SPAM automatically
+    elif has_heuristics and llm != "FRAUD":
+        classification = "SPAM"
+        
+    # 6. Fallback to LLM
     else:
-        classification = state.get("llm_classification", "SAFE")
+        classification = llm
 
-    logger.info(f"[Agent] Final classification for {state['email_id']}: {classification}")
+    logger.info(f"[Agent] Final classification for {state['email_id']}: {classification} (Trust: {trust_lvl}, LLM: {llm})")
     return {"classification": classification}
 
 
 def node_action(state: EmailSecurityState) -> dict:
-    result = take_action(state["service"], state["email_id"], state["classification"])
+    # Pass was_unread state to action taker
+    result = take_action(
+        state["service"], 
+        state["email_id"], 
+        state["classification"], 
+        was_unread=state.get("was_unread", False)
+    )
     return {"action_taken": result}
 
 

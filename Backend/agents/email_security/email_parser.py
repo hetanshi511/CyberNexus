@@ -1,6 +1,6 @@
 """
 Email Security Agent — Email Parser
-Extracts subject, sender, plain text body, links, and raw attachment bytes.
+Extracts subject, sender, headers, body, read state, and attachment bytes.
 """
 import base64
 import re
@@ -18,6 +18,8 @@ def parse_email_full(service, msg_id: str) -> dict:
     Returns:
         {
             subject, sender, body (plain text),
+            headers: raw header list (for SPF/DKIM analysis),
+            was_unread: bool (original read state BEFORE we touch it),
             attachments: [{ filename, data_bytes, size }],
         }
     """
@@ -25,6 +27,10 @@ def parse_email_full(service, msg_id: str) -> dict:
         msg = service.users().messages().get(userId="me", id=msg_id, format="full").execute()
         payload = msg.get("payload", {})
         headers = payload.get("headers", [])
+        label_ids = msg.get("labelIds", [])
+
+        # Capture the original unread state BEFORE any modification
+        was_unread = "UNREAD" in label_ids
 
         subject = _header(headers, "Subject")
         sender = _header(headers, "From")
@@ -35,11 +41,13 @@ def parse_email_full(service, msg_id: str) -> dict:
             "subject": subject,
             "sender": sender,
             "body": body,
+            "headers": headers,
+            "was_unread": was_unread,
             "attachments": attachments,
         }
     except Exception as e:
         logger.error(f"[EmailParser] Failed to parse {msg_id}: {e}", exc_info=True)
-        return {"subject": "", "sender": "", "body": "", "attachments": []}
+        return {"subject": "", "sender": "", "body": "", "headers": [], "was_unread": False, "attachments": []}
 
 
 def extract_links(text: str) -> list:

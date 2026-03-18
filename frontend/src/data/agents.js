@@ -95,13 +95,25 @@ export const agents = [
         integrations: ['googlecalendar', 'email'],
         tags: ['HR', 'Scheduling', 'Calendar', 'Hiring'],
         prompt: 'Schedule an interview for a candidate with a recruiter.'
+    },
+    {
+        id: 'email-security',
+        title: 'Email Security Agent',
+        description: 'Real-time Gmail inbox monitoring that detects phishing, SPAM, and FRAUD using VirusTotal scanning and LLM analysis — then auto-labels and quarantines threats.',
+        industry: 'Security',
+        function: 'IT',
+        useCase: 'Threat Detection',
+        agentType: 'Process Automation',
+        integrations: ['gmail', 'virustotal'],
+        tags: ['Security', 'Email', 'Phishing', 'Fraud'],
+        prompt: 'Scan my inbox for phishing, spam, and fraud emails.'
     }
 ];
 
 export const filters = {
     industries: ['Technology', 'Healthcare', 'Banking', 'Retail', 'Manufacturing', 'Education', 'Compliance'],
     functions: ['HR', 'Sales', 'Marketing', 'Customer Support', 'IT', 'Finance', 'Operations', 'Audit', 'Risk', 'Legal'],
-    useCases: ['Onboarding', 'Meeting Prep', 'Ticket Management', 'Lead Gen', 'Content Creation', 'Alignment Check', 'Vendor Management'],
+    useCases: ['Onboarding', 'Meeting Prep', 'Ticket Management', 'Lead Gen', 'Content Creation', 'Alignment Check', 'Vendor Management', 'Threat Detection', 'Security Check'],
     agentTypes: ['Conversational', 'Assistant', 'Process Automation', 'Predictive AI', 'Generative AI', 'Analysis', 'Risk Analysis'],
-    integrations: ['Slack', 'Zendesk', 'HubSpot', 'Salesforce', 'Jira', 'Teams', 'Gmail', 'Azure', 'Box', 'OneDrive', 'GoogleDrive']
+    integrations: ['Slack', 'Zendesk', 'HubSpot', 'Salesforce', 'Jira', 'Teams', 'Gmail', 'Azure', 'Box', 'OneDrive', 'GoogleDrive', 'VirusTotal']
 };

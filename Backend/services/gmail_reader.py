@@ -106,16 +106,15 @@ def process_new_emails(email_address: str, history_id: str):
             
             if invite_id and intent:
                 handle_reply(email_address, invite_id, intent, preferred_time, sender)
+                # Mark Email as Processed ONLY if it was actually an interview reply
+                service.users().messages().modify(
+                    userId='me', 
+                    id=msg_id, 
+                    body={'removeLabelIds': ['UNREAD']}
+                ).execute()
+                logger.info(f"[GmailReader] Marked msg {msg_id} as processed (Interview Reply).")
             else:
-                logger.warning(f"[GmailReader] Could not identify invite ID or intent for msg {msg_id}")
-            
-            # Mark Email as Processed (Remove UNREAD label)
-            service.users().messages().modify(
-                userId='me', 
-                id=msg_id, 
-                body={'removeLabelIds': ['UNREAD']}
-            ).execute()
-            logger.info(f"[GmailReader] Marked msg {msg_id} as processed.")
+                logger.warning(f"[GmailReader] Not an interview reply (msg {msg_id}). Leaving UNREAD for Security Agent.")
             
     except Exception as e:
         logger.error(f"[GmailReader] Failed to process emails for {email_address}: {e}", exc_info=True)

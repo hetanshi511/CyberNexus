@@ -1,17 +1,17 @@
 """
 Email Security Agent — Action Taker
-Applies Gmail labels, moves to spam, and marks emails unread based on classification.
+Applies Gmail labels, moves to Spam (FRAUD/SPAM), and correctly 
+preserves the original read/unread state of each email.
 """
-import os
 import logging
 from googleapiclient.errors import HttpError
 
 logger = logging.getLogger("email_security")
 
-# Custom Gmail label names for the dashboard user can see
 LABEL_FRAUD = "🔴 FRAUD"
 LABEL_SPAM_CUSTOM = "🟡 SPAM"
 LABEL_SAFE = "🟢 SAFE"
+LABEL_SUSPICIOUS = "🟠 SUSPICIOUS"
 
 
 def _get_or_create_label(service, label_name: str) -> str:
@@ -22,39 +22,46 @@ def _get_or_create_label(service, label_name: str) -> str:
             if lbl["name"] == label_name:
                 return lbl["id"]
 
-        # Create the label
         new_label = service.users().labels().create(
             userId="me",
             body={"name": label_name, "labelListVisibility": "labelShow", "messageListVisibility": "show"}
         ).execute()
-        logger.info(f"[ActionTaker] Created label '{label_name}' with id {new_label['id']}")
+        logger.info(f"[ActionTaker] Created label '{label_name}' → id={new_label['id']}")
         return new_label["id"]
     except HttpError as e:
         logger.warning(f"[ActionTaker] Could not get/create label '{label_name}': {e}")
         return None
 
 
-def take_action(service, msg_id: str, classification: str) -> str:
+def take_action(service, msg_id: str, classification: str, was_unread: bool = False) -> str:
     """
-    Applies Gmail actions based on classification:
-     - FRAUD / SPAM → move to Spam folder + apply custom label
-     - SAFE → apply safe label only, leave in inbox
-     - All → mark as UNREAD so user sees it
-    Returns description of actions taken.
+    Applies Gmail actions based on classification.
+
+    Read/Unread policy (Problem 2 fix):
+      - If the email WAS already read (was_unread=False) → keep it read (don't touch UNREAD label)
+      - If the email WAS unread (was_unread=True) → restore UNREAD after labelling
+      - FRAUD/SPAM → always restore UNREAD so user notices the threat
+
+    Classification actions:
+      - FRAUD   → move to Spam + 🔴 FRAUD label + always UNREAD
+      - SPAM    → move to Spam + 🟡 SPAM label + always UNREAD
+      - SUSPICIOUS → stay in inbox + 🟠 SUSPICIOUS label + restore original state
+      - SAFE    → stay in inbox + 🟢 SAFE label + restore original state
     """
     actions = []
+    add_labels = []
+    remove_labels = []
 
     try:
-        add_labels = []
-        remove_labels = []
-
         if classification == "FRAUD":
             label_id = _get_or_create_label(service, LABEL_FRAUD)
             if label_id:
                 add_labels.append(label_id)
             add_labels.append("SPAM")
             remove_labels.append("INBOX")
-            actions.append("moved to Spam + labeled 🔴 FRAUD")
+            # Always mark unread for FRAUD so user sees it
+            add_labels.append("UNREAD")
+            actions.append("moved to Spam + labeled 🔴 FRAUD + marked unread")
 
         elif classification == "SPAM":
             label_id = _get_or_create_label(service, LABEL_SPAM_CUSTOM)
@@ -62,17 +69,32 @@ def take_action(service, msg_id: str, classification: str) -> str:
                 add_labels.append(label_id)
             add_labels.append("SPAM")
             remove_labels.append("INBOX")
-            actions.append("moved to Spam + labeled 🟡 SPAM")
+            # Always mark unread for SPAM
+            add_labels.append("UNREAD")
+            actions.append("moved to Spam + labeled 🟡 SPAM + marked unread")
 
-        else:
-            # SAFE — just label it
+        elif classification == "SUSPICIOUS":
+            # Trusted sender but suspicious content — don't move to Spam
+            label_id = _get_or_create_label(service, LABEL_SUSPICIOUS)
+            if label_id:
+                add_labels.append(label_id)
+            # Restore original read state
+            if was_unread:
+                add_labels.append("UNREAD")
+            else:
+                remove_labels.append("UNREAD")
+            actions.append("labeled 🟠 SUSPICIOUS + read state preserved")
+
+        else:  # SAFE
             label_id = _get_or_create_label(service, LABEL_SAFE)
             if label_id:
                 add_labels.append(label_id)
-            actions.append("labeled 🟢 SAFE")
-
-        # Always mark as UNREAD so user notices it
-        add_labels.append("UNREAD")
+            # Restore original read state — if it was read before, keep it read
+            if was_unread:
+                add_labels.append("UNREAD")
+            else:
+                remove_labels.append("UNREAD")
+            actions.append("labeled 🟢 SAFE + read state preserved")
 
         service.users().messages().modify(
             userId="me",
@@ -80,8 +102,8 @@ def take_action(service, msg_id: str, classification: str) -> str:
             body={"addLabelIds": add_labels, "removeLabelIds": remove_labels}
         ).execute()
 
-        action_str = " + ".join(actions) + " + marked unread"
-        logger.info(f"[ActionTaker] msg={msg_id} → {action_str}")
+        action_str = " | ".join(actions)
+        logger.info(f"[ActionTaker] msg={msg_id} was_unread={was_unread} → {action_str}")
         return action_str
 
     except Exception as e:
