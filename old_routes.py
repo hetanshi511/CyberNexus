@@ -1,35 +1,29 @@
 """
 Email Security Agent — FastAPI Router
-GET  /api/email-security/scan          — Manual scan (N newest unread+unlabeled emails)
-POST /api/gmail-security-webhook       — Pub/Sub push: analyze the single newly arrived email
-GET  /api/auth/gmail/connect           — Returns the Google OAuth consent URL
-GET  /api/auth/gmail/connected/:email  — Checks if a user has OAuth tokens stored
+GET /api/email-security/scan  — trigger a manual scan
+POST /api/gmail-security-webhook — Pub/Sub push endpoint (real-time)
 """
-import asyncio
 import base64
 import json
 import logging
 from fastapi import APIRouter, HTTPException, Request, Query
 
-from agents.email_security.agent import run_email_security_scan, run_single_email_scan
+from agents.email_security.agent import run_email_security_scan
 from services.gmail_reader import get_gmail_service
-from routes.auth_routes import get_google_oauth_url
 
 logger = logging.getLogger("email_security")
 
 router = APIRouter()
 
 
-# ── Manual Scan ─────────────────────────────────────────────────────────────
-
 @router.get("/api/email-security/scan")
 async def scan_inbox(
-    email: str = Query(..., description="Gmail address to scan"),
-    max_results: int = Query(10, ge=1, le=50, description="Max NEW emails to analyze"),
+    email: str = Query(..., description="Recruiter/user Gmail to scan"),
+    max_results: int = Query(20, ge=1, le=50, description="Max emails to scan"),
 ):
     """
-    Triggers security analysis on NEW (UNREAD + unlabeled) emails only.
-    Already-classified emails are skipped automatically.
+    Triggers a full security analysis of the user's Gmail inbox.
+    Requires the user to have completed the OAuth flow via /api/auth/google/url first.
     """
     logger.info(f"[Route] Manual scan requested for {email} (max={max_results})")
     try:
@@ -47,8 +41,6 @@ async def scan_inbox(
         logger.error(f"[Route] Scan failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ── Webhook Notification ──────────────────────────────────────────────────
 
 @router.post("/api/gmail-security-webhook")
 async def gmail_security_webhook(request: Request):
@@ -83,21 +75,3 @@ async def gmail_security_webhook(request: Request):
     except Exception as e:
         logger.error(f"[Webhook] Security webhook error: {e}", exc_info=True)
         return {"status": "error"}
-
-
-
-# ── Gmail OAuth Connect helpers ──────────────────────────────────────────────
-
-@router.get("/api/auth/gmail/connect")
-async def get_gmail_connect_url():
-    """Returns the Google OAuth consent URL for Gmail access."""
-    return await get_google_oauth_url()
-
-
-@router.get("/api/auth/gmail/connected")
-async def check_gmail_connected(email: str = Query(...)):
-    """Check if a user already has valid OAuth tokens stored for their Gmail."""
-    from utils.db import get_oauth_credentials
-    creds = get_oauth_credentials(email)
-    has_token = bool(creds and creds.get("refresh_token"))
-    return {"email": email, "connected": has_token}
