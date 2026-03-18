@@ -120,12 +120,12 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
             
         logger.info(f"[OAuth] Successfully fetched and saved tokens for {email}. Refresh Token Present: {bool(refresh_token)}")
         
-        return {
-            "status": "success", 
-            "message": "Google Authentication Successful! You may close this window.",
-            "email": email,
-            "has_refresh_token": bool(refresh_token)
-        }
+        # Redirect to the frontend dashboard with a success flag
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        return RedirectResponse(
+            url=f"{frontend_url}/email-security-dashboard?connected=true",
+            status_code=302
+        )
         
     except Exception as e:
         logger.error(f"[OAuth] Token exchange failed: {e}", exc_info=True)
