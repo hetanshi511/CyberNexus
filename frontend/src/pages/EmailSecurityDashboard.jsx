@@ -202,7 +202,7 @@ const EmailSecurityDashboard = () => {
                         <div className="flex flex-col sm:flex-row gap-4 items-end">
                             <div className="flex-1">
                                 <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                                    Emails to Analyze (newest, unlabeled)
+                                    Emails to Analyze
                                 </label>
                                 <select
                                     id="security-max-results"
