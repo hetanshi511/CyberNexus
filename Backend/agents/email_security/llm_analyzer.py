@@ -1,6 +1,6 @@
 """
 Email Security Agent — LLM Analyzer
-Uses LLM to classify emails as SAFE / SPAM / FRAUD based on combined signals.
+Uses LLM to classify emails as SAFE / SPAM / FRAUD / SUSPICIOUS based on combined signals.
 """
 import json
 import logging
@@ -18,7 +18,7 @@ def analyze_email_with_llm(
     link_results: list,
 ) -> dict:
     """
-    Returns: { classification: SAFE|SPAM|FRAUD, confidence: high|medium|low, reason: str }
+    Returns: { classification: SAFE|SPAM|FRAUD|SUSPICIOUS, confidence: high|medium|low, reason: str }
     """
     att_summary = _summarize_vt(attachment_results, "attachment")
     link_summary = _summarize_vt(link_results, "link")
@@ -42,7 +42,7 @@ Instructions:
 
 Return ONLY valid JSON, no explanation:
 {{
-  "classification": "SAFE" | "SPAM" | "FRAUD",
+  "classification": "SAFE" | "SPAM" | "FRAUD" | "SUSPICIOUS",
   "confidence": "high" | "medium" | "low",
   "reason": "brief one-line explanation"
 }}"""
@@ -59,7 +59,7 @@ Return ONLY valid JSON, no explanation:
 
         data = json.loads(content)
         classification = data.get("classification", "SAFE").upper()
-        if classification not in {"SAFE", "SPAM", "FRAUD"}:
+        if classification not in {"SAFE", "SPAM", "SUSPICIOUS","FRAUD"}:
             classification = "SAFE"
 
         return {
