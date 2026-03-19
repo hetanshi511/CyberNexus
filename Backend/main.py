@@ -359,42 +359,57 @@ def startup_event():
         )
 
 def register_gmail_watch():
-    """Register Gmail watch for Pub/Sub push notifications. Expires in 7 days."""
+    """Register Gmail watch for Pub/Sub push notifications for ALL active users. Expires in 7 days."""
     try:
         from utils.db import engine
         from sqlalchemy import text
         
         with engine.connect() as conn:
-            row = conn.execute(text("SELECT email FROM user_oauth_tokens ORDER BY updated_at DESC LIMIT 1")).fetchone()
+            rows = conn.execute(text("SELECT email FROM user_oauth_tokens")).fetchall()
             
-        if not row:
-            logger.warning("No OAuth token found in DB. Skipping automated watch registration.")
+        if not rows:
+            logger.warning("No OAuth tokens found in DB. Skipping automated watch registration.")
             return
 
-        email = row[0]
-        service = get_gmail_service(email_address=email)
+        success_count = 0
+        fail_count = 0
         
-        results = service.users().labels().list(userId='me').execute()
-        labels = results.get('labels', [])
-        
-        target_label_id = None
-        for label in labels:
-            if label['name'].lower() == 'interview-replies':
-                target_label_id = label['id']
-                break
+        for row in rows:
+            email = row[0]
+            try:
+                service = get_gmail_service(email_address=email)
                 
-        if not target_label_id:
-            logger.warning(f"Could not find label 'Interview-Replies' for {email}! Please create it.")
-            return
-            
-        request = {
-            "labelIds": [target_label_id],
-            "topicName": "projects/ai-marketplace-c169b/topics/gmail-interview-replies"
-        }
-        res = service.users().watch(userId="me", body=request).execute()
-        logger.info(f"Gmail watch registered successfully for {email}: {res}")
+                results = service.users().labels().list(userId='me').execute()
+                labels = results.get('labels', [])
+                
+                target_label_id = None
+                for label in labels:
+                    if label['name'].lower() == 'interview-replies':
+                        target_label_id = label['id']
+                        break
+                        
+                if not target_label_id:
+                    logger.warning(f"Could not find label 'Interview-Replies' for {email}. It will only watch INBOX.")
+                    label_ids_to_watch = ["INBOX"]
+                else:
+                    label_ids_to_watch = ["INBOX", target_label_id]
+                    
+                request = {
+                    "labelIds": label_ids_to_watch,
+                    "topicName": "projects/ai-marketplace-c169b/topics/gmail-interview-replies"
+                }
+                res = service.users().watch(userId="me", body=request).execute()
+                logger.info(f"Gmail watch registered successfully for {email}: {res}")
+                success_count += 1
+            except Exception as e:
+                logger.error(f"Failed to register Gmail watch for {email}: {e}")
+                fail_count += 1
+                continue
+                
+        logger.info(f"Startup Watch Registration Complete! Success: {success_count}, Failed: {fail_count}")
+
     except Exception as e:
-        logger.error(f"Failed to register Gmail watch: {e}", exc_info=True)
+        logger.error(f"Failed to run batch Gmail watch registration: {e}", exc_info=True)
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
