@@ -34,3 +34,12 @@ google-auth-oauthlib
 
 # Email Security Agent
 vt-py
+
+
+# PPT from JSON or prompt
+ddgs
+
+langchain-core
+python-pptx
+boto3
+

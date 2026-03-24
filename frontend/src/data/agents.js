@@ -107,6 +107,18 @@ export const agents = [
         integrations: ['gmail', 'virustotal'],
         tags: ['Security', 'Email', 'Phishing', 'Fraud'],
         prompt: 'Scan my inbox for phishing, spam, and fraud emails.'
+    },
+    {
+        id: 'ppt-generator',
+        title: 'AutoPresenter Agent',
+        description: 'Generates professional PowerPoint presentations from a topic or structured JSON data. Supports multiple templates, auto-builds charts/tables, and attaches full document metadata.',
+        industry: 'Productivity',
+        function: 'Marketing',
+        useCase: 'Content Creation',
+        agentType: 'Generative AI',
+        integrations: ['aws-bedrock'],
+        tags: ['Presentation', 'PowerPoint', 'Analytics', 'Automation'],
+        prompt: 'Generate a professional presentation from my topic or data.'
     }
 ];
 

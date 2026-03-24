@@ -279,6 +279,8 @@ const AgentDetails = () => {
                                                 navigate('/scheduler-dashboard');
                                             } else if (agent.id === 'email-security') {
                                                 navigate('/email-security-dashboard');
+                                            } else if (agent.id === 'ppt-generator') {
+                                                navigate('/ppt-generator-dashboard');
                                             } else {
                                                 setShowRunModal(true);
                                             }

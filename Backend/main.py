@@ -22,6 +22,7 @@ from routes.scheduler_routes import router as scheduler_router
 from routes.gmail_webhook_routes import router as gmail_webhook_router
 from routes.auth_routes import router as auth_router
 from routes.email_security_routes import router as email_security_router
+from routes.ppt_generator_routes import router as ppt_generator_router
 
 from utils.firebase_auth import get_current_tenant
 from utils.email_pdf import send_raw_pdf_email
@@ -63,6 +64,7 @@ app.include_router(scheduler_router)
 app.include_router(gmail_webhook_router)
 app.include_router(auth_router)
 app.include_router(email_security_router)
+app.include_router(ppt_generator_router)
 
 # Request Logging Middleware
 @app.middleware("http")
