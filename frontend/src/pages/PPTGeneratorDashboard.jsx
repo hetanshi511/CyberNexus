@@ -318,24 +318,20 @@ export default function PPTGeneratorDashboard() {
 
                         <Section title="Input — Topic, JSON, or Follow-up Change" icon={FileText}>
                             <div>
-                                <Label>Topic, Analytical JSON, or Update Instruction *</Label>
+                                <Label>Topic or Analytical JSON</Label>
                                 <textarea
                                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800
                                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                         bg-white shadow-sm resize-none transition font-mono"
                                     rows={9}
                                     placeholder={
-                                        sessionId
-                                            ? `To UPDATE: "Add a competitor analysis slide"\n\nTo start NEW: Type a completely different topic or paste new JSON`
-                                            : `Topic:  "AI Trends in 2024"\n\nJSON:\n{\n  "sales": [100, 200, 150],\n  "products": ["Laptop", "Phone", "Tablet"]\n}`}
+                                       `Topic:  "AI Trends in 2024"\n\nJSON:\n{\n  "sales": [100, 200, 150],\n  "products": ["Laptop", "Phone", "Tablet"]\n}`}
                                     value={rawInput}
                                     onChange={e => setRawInput(e.target.value)}
                                     required
                                 />
                                 <p className="text-xs text-gray-400 mt-1.5">
-                                    {sessionId
-                                        ? 'Follow-up updates are auto-detected. A new topic auto-starts a fresh session.'
-                                        : 'Paste a topic, raw JSON data, or a JSON file reference using @filename.'}
+                                    {'Paste a topic, raw JSON data, or a JSON file reference using @filename.'}
                                 </p>
                             </div>
 
@@ -405,7 +401,7 @@ export default function PPTGeneratorDashboard() {
                                                 ${isUpdate ? 'text-indigo-600' : 'text-green-600'}`} />
                                             <div>
                                                 <p className={`font-bold ${isUpdate ? 'text-indigo-800' : 'text-green-800'}`}>
-                                                    {isUpdate ? 'Presentation Updated!' : 'Presentation Ready!'}
+                                                    {isUpdate ? 'Presentation Ready!' : 'Presentation Ready!'}
                                                 </p>
                                                 {slideCount > 0 && (
                                                     <p className={`text-sm mt-0.5 ${isUpdate ? 'text-indigo-700' : 'text-green-700'}`}>

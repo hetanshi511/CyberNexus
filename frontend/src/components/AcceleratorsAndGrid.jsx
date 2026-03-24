@@ -93,7 +93,7 @@ const AcceleratorsAndGrid = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mb-10">
-                        {["All", "General", "Customer Support", "Sales", "Marketing", "HR", "IT", "Finance", "Operations", "Audit", "Risk", "Legal", "Compliance"].map(filter => (
+                        {["All", "Marketing", "HR", "IT", "Audit", "Compliance"].map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => setActiveFilter(filter)}
@@ -106,6 +106,7 @@ const AcceleratorsAndGrid = () => {
                             </button>
                         ))}
                     </div>
+
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {filteredFunctions.map((func, idx) => (

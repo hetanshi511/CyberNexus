@@ -10,6 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./Backend/agents/PPT_generator_from_Database/Data_dump/workflow_db.sql:/docker-entrypoint-initdb.d/workflow_db.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -37,6 +38,11 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL}
+      - DB_HOST=postgres
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_PORT=5432
     volumes:
       - ./Backend:/app
     depends_on:

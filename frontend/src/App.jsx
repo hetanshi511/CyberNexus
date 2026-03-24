@@ -14,6 +14,7 @@ import ResumeReviewerDashboard from './pages/ResumeReviewerDashboard';
 import SchedulerDashboard from './pages/SchedulerDashboard';
 import EmailSecurityDashboard from './pages/EmailSecurityDashboard';
 import PPTGeneratorDashboard from './pages/PPTGeneratorDashboard';
+import PPTDBGeneratorDashboard from './pages/PPTDBGeneratorDashboard';
 import { AuthProvider } from './context/AuthContext';
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
             <Route path="/scheduler-dashboard" element={<PrivateRoute><SchedulerDashboard /></PrivateRoute>} />
             <Route path="/email-security-dashboard" element={<PrivateRoute><EmailSecurityDashboard /></PrivateRoute>} />
             <Route path="/ppt-generator-dashboard" element={<PrivateRoute><PPTGeneratorDashboard /></PrivateRoute>} />
+            <Route path="/ppt-db-generator-dashboard" element={<PrivateRoute><PPTDBGeneratorDashboard /></PrivateRoute>} />
           </Routes>
           <Footer />
         </div>

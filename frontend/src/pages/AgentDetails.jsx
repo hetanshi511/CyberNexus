@@ -281,6 +281,8 @@ const AgentDetails = () => {
                                                 navigate('/email-security-dashboard');
                                             } else if (agent.id === 'ppt-generator') {
                                                 navigate('/ppt-generator-dashboard');
+                                            } else if (agent.id === 'ppt-db-generator') {
+                                                navigate('/ppt-db-generator-dashboard');
                                             } else {
                                                 setShowRunModal(true);
                                             }

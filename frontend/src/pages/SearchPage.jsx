@@ -60,19 +60,11 @@ const SearchPage = () => {
 
     // State for filters
     const [selectedFilters, setSelectedFilters] = useState({
-        industries: [],
-        functions: [],
-        useCases: [],
-        agentTypes: [],
-        integrations: []
+        functions: []
     });
 
     const [openSections, setOpenSections] = useState({
-        industries: true,
-        functions: false,
-        useCases: false,
-        agentTypes: false,
-        integrations: false
+        functions: true
     });
 
     // Handle Search Input
@@ -95,11 +87,9 @@ const SearchPage = () => {
         const matchesQuery = agent.title.toLowerCase().includes(query.toLowerCase()) ||
             agent.description.toLowerCase().includes(query.toLowerCase());
 
-        const matchesIndustry = selectedFilters.industries.length === 0 || selectedFilters.industries.includes(agent.industry);
         const matchesFunction = selectedFilters.functions.length === 0 || selectedFilters.functions.includes(agent.function);
-        // Simplified matching for other categories just for demo
 
-        return matchesQuery && matchesIndustry && matchesFunction;
+        return matchesQuery && matchesFunction;
     });
 
     return (
@@ -134,14 +124,6 @@ const SearchPage = () => {
                             <h3 className="font-semibold text-gray-900 mb-4">Filters</h3>
 
                             <FilterSection
-                                title="Industry"
-                                options={filters.industries}
-                                selected={selectedFilters.industries}
-                                onChange={(val) => toggleFilter('industries', val)}
-                                isOpen={openSections.industries}
-                                toggleOpen={() => setOpenSections(prev => ({ ...prev, industries: !prev.industries }))}
-                            />
-                            <FilterSection
                                 title="Function"
                                 options={filters.functions}
                                 selected={selectedFilters.functions}
@@ -149,44 +131,13 @@ const SearchPage = () => {
                                 isOpen={openSections.functions}
                                 toggleOpen={() => setOpenSections(prev => ({ ...prev, functions: !prev.functions }))}
                             />
-                            <FilterSection
-                                title="Use Case"
-                                options={filters.useCases}
-                                selected={selectedFilters.useCases}
-                                onChange={(val) => toggleFilter('useCases', val)}
-                                isOpen={openSections.useCases}
-                                toggleOpen={() => setOpenSections(prev => ({ ...prev, useCases: !prev.useCases }))}
-                            />
-                            <FilterSection
-                                title="Agent Type"
-                                options={filters.agentTypes}
-                                selected={selectedFilters.agentTypes}
-                                onChange={(val) => toggleFilter('agentTypes', val)}
-                                isOpen={openSections.agentTypes}
-                                toggleOpen={() => setOpenSections(prev => ({ ...prev, agentTypes: !prev.agentTypes }))}
-                            />
-                            <FilterSection
-                                title="Integration"
-                                options={filters.integrations}
-                                selected={selectedFilters.integrations}
-                                onChange={(val) => toggleFilter('integrations', val)}
-                                isOpen={openSections.integrations}
-                                toggleOpen={() => setOpenSections(prev => ({ ...prev, integrations: !prev.integrations }))}
-                            />
                         </div>
                     </aside>
 
                     {/* Main Content */}
                     <div className="flex-1">
 
-                        {/* Quick Filters */}
-                        <div className="flex flex-wrap gap-3 mb-6">
-                            {['AI for Process', 'AI for Work', 'AI for Service'].map(tag => (
-                                <button key={tag} className="px-5 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all">
-                                    {tag}
-                                </button>
-                            ))}
-                        </div>
+
 
                         {/* Search Input */}
                         <div className="relative mb-8">
@@ -252,7 +203,7 @@ const SearchPage = () => {
                                     We couldn't find any agents matching "{query}". Try adjusting your filters or search terms.
                                 </p>
                                 <button
-                                    onClick={() => { setSearchParams({ q: '' }); setSelectedFilters({ industries: [], functions: [], useCases: [], agentTypes: [], integrations: [] }) }}
+                                    onClick={() => { setSearchParams({ q: '' }); setSelectedFilters({ functions: [] }) }}
                                     className="mt-6 px-4 py-2 text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors"
                                 >
                                     Clear all filters

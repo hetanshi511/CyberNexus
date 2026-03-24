@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowRight, Sparkles, FileText, Calendar, Database, Shield, LayoutTemplate } from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const tags = [
-    { icon: FileText, label: "Automate RFP responses" },
-    { icon: Calendar, label: "Prep for client meeting" },
-    // ... other tags
-];
 
 const FloatingIcon = ({ icon: Icon, className, delay }) => (
     <motion.div
@@ -77,25 +71,7 @@ const Hero = () => {
                         </button>
                     </motion.form>
 
-                    {/* Tags Grid (Static for now as in original Hero) */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                        className="flex flex-col items-center gap-3"
-                    >
-                        <div className="flex flex-wrap justify-center gap-3">
-                            <button onClick={() => navigate('/search?q=RFP')} className="flex items-center gap-2 px-4 py-2 bg-white border border-blue-50/50 rounded-xl text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-all shadow-sm cursor-pointer group">
-                                <FileText className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-600" />
-                                Automate RFP responses
-                            </button>
-                            <button onClick={() => navigate('/search?q=Meeting')} className="flex items-center gap-2 px-4 py-2 bg-white border border-blue-50/50 rounded-xl text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-all shadow-sm cursor-pointer group">
-                                <Calendar className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-600" />
-                                Prep for client meeting
-                            </button>
-                            {/* Simplified for brevity, would normally map all */}
-                        </div>
-                    </motion.div>
+
                 </div>
             </div>
         </section>
