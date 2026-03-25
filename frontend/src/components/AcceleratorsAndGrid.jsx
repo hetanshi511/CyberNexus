@@ -32,10 +32,14 @@ const AcceleratorsAndGrid = () => {
     const [activeFilter, setActiveFilter] = useState("All");
     const navigate = useNavigate();
 
-    // Filter logic
-    const filteredFunctions = activeFilter === "All"
-        ? agents
-        : agents.filter(agent => agent.function === activeFilter || agent.tags.includes(activeFilter));
+    // Filter logic — supports function as a string OR array of strings
+    const matchesFilter = (agent) => {
+        if (activeFilter === 'All') return true;
+        const fn = agent.function;
+        if (Array.isArray(fn)) return fn.includes(activeFilter);
+        return fn === activeFilter || agent.tags.includes(activeFilter);
+    };
+    const filteredFunctions = agents.filter(matchesFilter);
 
     return (
         <section className="py-12 pb-32">
@@ -70,11 +74,6 @@ const AcceleratorsAndGrid = () => {
                         ))}
                     </div>
 
-                    <div className="flex justify-center mt-8">
-                        <button className="p-2 bg-white rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors">
-                            <ChevronDown className="w-5 h-5 text-gray-400" />
-                        </button>
-                    </div>
                 </div>
 
                 {/* Functions Grid Section */}
@@ -93,7 +92,7 @@ const AcceleratorsAndGrid = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mb-10">
-                        {["All", "Marketing", "HR", "IT", "Audit", "Compliance"].map(filter => (
+                        {["All", "Marketing", "HR", "IT", "Audit", "Compliance", "Analytics"].map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => setActiveFilter(filter)}

@@ -41,7 +41,7 @@ export const agents = [
         title: 'Compliance Verification Agent',
         description: 'Fetches recent Jira tickets from a Project and analyzes them for compliance alignment in a tabular report.',
         industry: 'Compliance',
-        function: 'Audit',
+        function: ['Compliance','Audit'],
         useCase: 'Alignment Check',
         agentType: 'Analysis',
         integrations: ['jira'],
@@ -65,7 +65,7 @@ export const agents = [
         title: 'Header Validator Agent',
         description: 'Performs a deep security analysis of site headers, checking for missing or vulnerable configurations.',
         industry: 'Security',
-        function: 'IT',
+        function: ['IT','Audit'],
         useCase: 'Security Check',
         agentType: 'Analysis',
         integrations: ['web'],
@@ -113,7 +113,7 @@ export const agents = [
         title: 'AutoPresenter Agent',
         description: 'Generates professional PowerPoint presentations from a topic or structured JSON data. Supports multiple templates, auto-builds charts/tables, and attaches full document metadata.',
         industry: 'Productivity',
-        function: 'Marketing',
+        function: ['Marketing','Analytics'],
         useCase: 'Content Creation',
         agentType: 'Generative AI',
         integrations: ['aws-bedrock'],
@@ -136,7 +136,7 @@ export const agents = [
 
 export const filters = {
     industries: ['Technology', 'Healthcare', 'Banking', 'Retail', 'Manufacturing', 'Education', 'Compliance'],
-    functions: ['HR', 'Sales', 'Marketing', 'Customer Support', 'IT', 'Finance', 'Operations', 'Audit', 'Risk', 'Legal'],
+    functions: ['HR', 'Marketing', 'IT', 'Audit', 'Analytics', 'Compliance'],
     useCases: ['Onboarding', 'Meeting Prep', 'Ticket Management', 'Lead Gen', 'Content Creation', 'Alignment Check', 'Vendor Management', 'Threat Detection', 'Security Check'],
     agentTypes: ['Conversational', 'Assistant', 'Process Automation', 'Predictive AI', 'Generative AI', 'Analysis', 'Risk Analysis'],
     integrations: ['Slack', 'Zendesk', 'HubSpot', 'Salesforce', 'Jira', 'Teams', 'Gmail', 'Azure', 'Box', 'OneDrive', 'GoogleDrive', 'VirusTotal']

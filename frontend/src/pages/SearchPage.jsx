@@ -87,7 +87,11 @@ const SearchPage = () => {
         const matchesQuery = agent.title.toLowerCase().includes(query.toLowerCase()) ||
             agent.description.toLowerCase().includes(query.toLowerCase());
 
-        const matchesFunction = selectedFilters.functions.length === 0 || selectedFilters.functions.includes(agent.function);
+        const fn = agent.function;
+        const matchesFunction = selectedFilters.functions.length === 0 ||
+            (Array.isArray(fn)
+                ? fn.some(f => selectedFilters.functions.includes(f))
+                : selectedFilters.functions.includes(fn));
 
         return matchesQuery && matchesFunction;
     });
