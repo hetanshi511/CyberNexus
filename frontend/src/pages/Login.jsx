@@ -209,7 +209,7 @@ const Login = () => {
                                                 </>
                                             ) : (
                                                 <>
-                                                    Send Magic Link
+                                                    Send Link
                                                     <ArrowRight className="w-4 h-4" />
                                                 </>
                                             )}
@@ -241,12 +241,12 @@ const Login = () => {
                         </motion.button>
 
                         {/* Footer */}
-                        <p className="text-center text-[11px] text-gray-400 mt-8">
+                        {/* <p className="text-center text-[11px] text-gray-400 mt-8">
                             By signing in you agree to our{' '}
                             <span className="text-blue-500 hover:text-blue-700 cursor-pointer transition-colors">Terms of Service</span>
                             {' '}and{' '}
                             <span className="text-blue-500 hover:text-blue-700 cursor-pointer transition-colors">Privacy Policy</span>.
-                        </p>
+                        </p> */}
                     </div>
                 </div>
             </motion.div>
