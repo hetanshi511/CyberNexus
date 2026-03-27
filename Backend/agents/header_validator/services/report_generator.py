@@ -25,11 +25,11 @@ Raw HTTP Headers Available:
 
 Please generate a professional security report strictly using the following 5 structured markdown sections to avoid redundancy:
 
-## 1️⃣ Missing Security Headers
-## 2️⃣ Misconfigured Headers
-## 3️⃣ Cookie Security Issues
-## 4️⃣ CSP Policy Weakness
-## 5️⃣ Server Exposure
+## 1. Missing Security Headers
+## 2. Misconfigured Headers
+## 3. Cookie Security Issues
+## 4. CSP Policy Weakness
+## 5. Server Exposure
 
 Focus solely on explaining the exact risks tied to the provided flaws and outline brief mitigations for each. 
 If a section has no issues (e.g. Server Exposure is clear), just write "No issues detected." under it. 

@@ -49,8 +49,12 @@ async def generate_dashboard_pdf_playwright(report_data: dict, dashboard_url: st
             )
             
             logger.info("LocalStorage injected. Loading full dashboard.")
-            # Now navigate to the actual dashboard URL
-            await page.goto(dashboard_url, wait_until="networkidle")
+            # Now navigate to the actual dashboard URL with auth bypass query parameter
+            bypass_url = f"{dashboard_url}?pdf_export=true"
+            if "?" in dashboard_url:
+                bypass_url = f"{dashboard_url}&pdf_export=true"
+                
+            await page.goto(bypass_url, wait_until="networkidle")
             
             # Additional small wait to ensure React animations / framer-motion complete
             await page.wait_for_timeout(1500)

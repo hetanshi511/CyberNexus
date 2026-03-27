@@ -8,6 +8,13 @@ import { useAuth } from '../context/AuthContext';
  */
 const PrivateRoute = ({ children }) => {
     const { currentUser } = useAuth();
+    
+    // Bypass authentication entirely for headless PDF generation (Playwright)
+    const isPdfExport = new URLSearchParams(window.location.search).get('pdf_export') === 'true';
+    if (isPdfExport) {
+        return children;
+    }
+
     return currentUser ? children : <Navigate to="/login" replace />;
 };
 

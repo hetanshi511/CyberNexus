@@ -26,8 +26,7 @@ def send_interview_email(
     meeting_link: str,
     recruiter_name: str,
     recruiter_email: str,
-    invite_id: str = None,
-    calendar_access_token: str = None,
+    invite_id: str = None
 ) -> bool:
     """
     Send an interview-confirmation email to the candidate via Gmail API.
@@ -63,33 +62,29 @@ def send_interview_email(
         msg["From"] = f"{recruiter_name} <{recruiter_email}>"
         msg["Subject"] = subject
 
-        # Build credentials: prefer stored DB refresh token; fall back to the
-        # short-lived OAuth token that was already used for the Calendar API.
         db_creds = get_oauth_credentials(recruiter_email)
-        if db_creds and db_creds.get("refresh_token"):
-            client_id = client_secret = None
-            path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client_secret.json")
-            if os.path.exists(path):
-                with open(path, "r") as f:
-                    data = json.load(f)
-                    web = data.get("web") or data.get("installed", {})
-                    client_id = web.get("client_id")
-                    client_secret = web.get("client_secret")
-            creds = Credentials(
-                token=db_creds["access_token"],
-                refresh_token=db_creds["refresh_token"],
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_id,
-                client_secret=client_secret,
-                scopes=["https://www.googleapis.com/auth/gmail.modify"]
-            )
-            logger.info(f"[EmailService] Using DB refresh token for {recruiter_email}")
-        elif calendar_access_token:
-            logger.warning(f"[EmailService] No DB refresh token for {recruiter_email}; using short-lived OAuth token.")
-            creds = Credentials(token=calendar_access_token)
-        else:
+        if not db_creds or not db_creds.get("refresh_token"):
             logger.error(f"No OAuth tokens found for {recruiter_email} to send email.")
             return False
+
+        # Get client_secret.json config
+        client_id = client_secret = None
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "client_secret.json")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                data = json.load(f)
+                web = data.get("web") or data.get("installed", {})
+                client_id = web.get("client_id")
+                client_secret = web.get("client_secret")
+
+        creds = Credentials(
+            token=db_creds["access_token"],
+            refresh_token=db_creds["refresh_token"],
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=["https://www.googleapis.com/auth/gmail.modify"]
+        )
             
         
         # Build ICS content
