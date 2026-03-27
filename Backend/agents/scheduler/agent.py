@@ -223,7 +223,8 @@ def send_email(state: SchedulerState) -> dict:
             meeting_link=state["meeting_link"],
             recruiter_name=state["recruiter_name"],
             recruiter_email=state["recruiter_email"],
-            invite_id=invite_id
+            invite_id=invite_id,
+            calendar_access_token=state.get("calendar_access_token"),
         )
         return {"email_sent": success}
 

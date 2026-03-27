@@ -15,11 +15,12 @@ const GoogleIcon = () => (
 );
 
 const Login = () => {
-    const [email, setEmail]           = useState('');
-    const [error, setError]           = useState('');
-    const [loading, setLoading]       = useState(false);
-    const [linkSent, setLinkSent]     = useState(false);
-    const [completing, setCompleting] = useState(false);
+    const [email, setEmail]             = useState('');
+    const [error, setError]             = useState('');
+    const [linkLoading, setLinkLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
+    const [linkSent, setLinkSent]       = useState(false);
+    const [completing, setCompleting]   = useState(false);
 
     const { loginWithGoogle, sendEmailLink, completeEmailLinkSignIn } = useAuth();
     const navigate = useNavigate();
@@ -47,13 +48,13 @@ const Login = () => {
         if (!email.trim()) return;
         try {
             setError('');
-            setLoading(true);
+            setLinkLoading(true);
             await sendEmailLink(email.trim());
             setLinkSent(true);
         } catch (err) {
             setError('Failed to send sign-in link: ' + err.message);
         } finally {
-            setLoading(false);
+            setLinkLoading(false);
         }
     };
 
@@ -61,12 +62,12 @@ const Login = () => {
     const handleGoogleSignIn = async () => {
         try {
             setError('');
-            setLoading(true);
+            setGoogleLoading(true);
             await loginWithGoogle();
             navigate('/');
         } catch (err) {
             setError('Failed to sign in with Google: ' + err.message);
-            setLoading(false);
+            setGoogleLoading(false);
         }
     };
 
@@ -189,7 +190,7 @@ const Login = () => {
                                                 required
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
-                                                disabled={loading}
+                                                disabled={linkLoading}
                                                 placeholder="name@company.com"
                                                 className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all disabled:opacity-60"
                                             />
@@ -197,12 +198,12 @@ const Login = () => {
                                         <motion.button
                                             id="send-magic-link-btn"
                                             type="submit"
-                                            disabled={loading || !email.trim()}
-                                            whileHover={{ scale: (loading || !email.trim()) ? 1 : 1.01 }}
-                                            whileTap={{ scale: (loading || !email.trim()) ? 1 : 0.99 }}
+                                            disabled={linkLoading || !email.trim()}
+                                            whileHover={{ scale: (linkLoading || !email.trim()) ? 1 : 1.01 }}
+                                            whileTap={{ scale: (linkLoading || !email.trim()) ? 1 : 0.99 }}
                                             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md shadow-blue-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            {loading ? (
+                                            {linkLoading ? (
                                                 <>
                                                     <Loader2 className="w-4 h-4 animate-spin" />
                                                     Sending link…
@@ -230,13 +231,17 @@ const Login = () => {
                         <motion.button
                             id="google-signin-btn"
                             onClick={handleGoogleSignIn}
-                            disabled={loading}
-                            whileHover={{ scale: loading ? 1 : 1.01 }}
-                            whileTap={{ scale: loading ? 1 : 0.99 }}
+                            disabled={googleLoading}
+                            whileHover={{ scale: googleLoading ? 1 : 1.01 }}
+                            whileTap={{ scale: googleLoading ? 1 : 0.99 }}
                             type="button"
                             className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <GoogleIcon />
+                            {googleLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                            ) : (
+                                <GoogleIcon />
+                            )}
                             Continue with Google
                         </motion.button>
 
