@@ -365,10 +365,10 @@ def startup_event():
 def register_gmail_watch():
     """Register Gmail watch for Pub/Sub push notifications for ALL active users. Expires in 7 days."""
     try:
-        from utils.db import engine
+        from utils.db import get_engine
         from sqlalchemy import text
         
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             rows = conn.execute(text("SELECT email FROM user_oauth_tokens")).fetchall()
             
         if not rows:

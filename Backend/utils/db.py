@@ -13,29 +13,53 @@ import os
 import json
 import hashlib
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy import create_engine, text, cast, literal
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Engine — built once at module import
+# Engine — lazily initialised on first use
 # ---------------------------------------------------------------------------
-_DATABASE_URL = os.getenv("DATABASE_URL")
-if not _DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is not set")
+_engine = None
 
-engine = create_engine(
-    _DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-    connect_args={"connect_timeout": 10},
-)
+
+def get_engine():
+    """Return the SQLAlchemy engine, creating and initialising it on first call.
+
+    Engine creation is deferred so that Railway's reference variable resolution
+    (e.g. ``${{ Postgres.DATABASE_URL }}``) has time to complete before the app
+    attempts a real TCP connection to the database.
+
+    Retry logic (up to 5 attempts with exponential back-off) guards against the
+    brief window where the Postgres service is still starting up.
+    """
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set")
+
+    _engine = create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        connect_args={"connect_timeout": 10},
+    )
+
+    # Attempt schema initialisation with retries so transient startup failures
+    # (e.g. Postgres container not yet ready) are handled gracefully.
+    _init_schema_with_retry(_engine)
+
+    return _engine
 
 # ---------------------------------------------------------------------------
 # Schema bootstrap — runs once, idempotent
@@ -136,19 +160,38 @@ CREATE TABLE IF NOT EXISTS user_oauth_tokens (
 );
 """
 
-def _init_schema() -> None:
-    """Run schema DDL once. Safe to call repeatedly (IF NOT EXISTS guards)."""
-    try:
-        with engine.begin() as conn:
-            conn.execute(text(_SCHEMA_SQL))
-        logger.info("[DB] Schema initialised successfully")
-    except SQLAlchemyError as exc:
-        logger.error(f"[DB] Schema initialisation failed: {exc}")
-        raise
+def _init_schema(engine) -> None:
+    """Run schema DDL once against *engine*. Safe to call repeatedly (IF NOT EXISTS guards)."""
+    with engine.begin() as conn:
+        conn.execute(text(_SCHEMA_SQL))
+    logger.info("[DB] Schema initialised successfully")
 
 
-# Auto-init on import
-_init_schema()
+def _init_schema_with_retry(engine, max_attempts: int = 5, base_delay: float = 2.0) -> None:
+    """Call _init_schema with exponential back-off retries.
+
+    Retries up to *max_attempts* times, doubling the wait after each failure
+    (2 s → 4 s → 8 s → 16 s).  Raises the last exception if all attempts fail.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            _init_schema(engine)
+            return
+        except (SQLAlchemyError, OperationalError) as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                delay = base_delay * (2 ** (attempt - 1))
+                logger.warning(
+                    f"[DB] Schema initialisation attempt {attempt}/{max_attempts} failed "
+                    f"({exc}). Retrying in {delay:.0f}s…"
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"[DB] Schema initialisation failed after {max_attempts} attempts: {exc}"
+                )
+    raise last_exc
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +212,7 @@ def _set_tenant(conn, tenant_id: str) -> None:
 def get_ticket_hash(tenant_id: str, ticket_key: str) -> Optional[str]:
     """Return stored ticket_hash for (tenant_id, ticket_key), or None."""
     try:
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             _set_tenant(conn, tenant_id)
             row = conn.execute(
                 text(
@@ -187,7 +230,7 @@ def get_ticket_hash(tenant_id: str, ticket_key: str) -> Optional[str]:
 def get_stored_attachment_ids(tenant_id: str, ticket_key: str) -> List[str]:
     """Return sorted list of attachment_ids already stored for (tenant_id, ticket_key)."""
     try:
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             _set_tenant(conn, tenant_id)
             rows = conn.execute(
                 text(
@@ -205,7 +248,7 @@ def get_stored_attachment_ids(tenant_id: str, ticket_key: str) -> List[str]:
 def load_report_from_db(tenant_id: str, ticket_key: str) -> Optional[Dict[str, Any]]:
     """Return the full dashboard_row dict stored for (tenant_id, ticket_key), or None."""
     try:
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             _set_tenant(conn, tenant_id)
             row = conn.execute(
                 text(
@@ -242,7 +285,7 @@ def upsert_ticket(
             except ValueError:
                 jira_updated = None
 
-        with engine.begin() as conn:
+        with get_engine().begin() as conn:
             _set_tenant(conn, tenant_id)
             conn.execute(
                 text("""
@@ -283,7 +326,7 @@ def upsert_report(
     """
     try:
         report_json = json.dumps(dashboard_row)
-        with engine.begin() as conn:
+        with get_engine().begin() as conn:
             _set_tenant(conn, tenant_id)
             conn.execute(
                 text("""
@@ -325,7 +368,7 @@ def get_attachment_result(tenant_id: str, attachment_id: str) -> Optional[Dict[s
     A non-None return means this attachment_id was already analysed.
     """
     try:
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             _set_tenant(conn, tenant_id)
             row = conn.execute(
                 text(
@@ -362,7 +405,7 @@ def upsert_attachment(
     upload, so a changed file will always produce a cache miss.
     """
     try:
-        with engine.begin() as conn:
+        with get_engine().begin() as conn:
             _set_tenant(conn, tenant_id)
             conn.execute(
                 text("""
@@ -433,7 +476,7 @@ def save_oauth_tokens(email: str, access_token: str, refresh_token: str = None, 
             updated_at = CURRENT_TIMESTAMP
     """
     try:
-        with engine.begin() as conn:
+        with get_engine().begin() as conn:
             conn.execute(
                 text(sql),
                 {
@@ -453,7 +496,7 @@ def get_oauth_credentials(email: str) -> Optional[Dict[str, Any]]:
     """Fetch the OAuth tokens for the given email, returning a dict if found."""
     sql = "SELECT access_token, refresh_token, expires_at FROM user_oauth_tokens WHERE email = :email"
     try:
-        with engine.connect() as conn:
+        with get_engine().connect() as conn:
             row = conn.execute(text(sql), {"email": email}).fetchone()
             if row:
                 return {
