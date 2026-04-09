@@ -46,16 +46,20 @@ def generate_newsletter(state: AgentState):
     news = state["news_results"]
     
     prompt = f"""You are a professional Cyber Security Analyst. 
-    Based on these news results, create a engaging LinkedIn newsletter post.
+    Based on these news results, create an engaging and formal LinkedIn newsletter post.
     
-    IMPORTANT: The output MUST be under 2500 characters.
-    Focus on the top 3-4 most critical updates only.
-    Use bullet points and keep descriptions concise.
+    IMPORTANT INSTRUCTIONS:
+    1. The output MUST NOT be in JSON format. It must be formatted as a formal, professional plain-text post.
+    2. The entire output MUST be under 2500 characters.
+    3. Focus on the top 3-4 most critical updates only.
+    4. Provide an engaging title and introduction.
+    5. For each update, provide a concise description using bullet points AND include the original source URL link so readers can access the full article.
+    6. Include relevant professional hashtags at the end.
     
     News Data:
     {news}
     
-    Output strictly the newsletter content."""
+    Output strictly the newsletter content text."""
     
     response = llm.invoke(prompt)
     content = response.content if hasattr(response, 'content') else str(response)
